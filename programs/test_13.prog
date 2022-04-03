@@ -1,0 +1,16 @@
+void some_function() {
+    int k;
+    int l;
+    l = 1;
+    for (k = 1; k < 13; k = k + 1) {
+        print l;
+        l = l * 2;
+    }
+}
+
+void main() {
+    int i;
+    for (i = 1; i <= 10; i = i + 1) {
+        print i;
+    }
+}
