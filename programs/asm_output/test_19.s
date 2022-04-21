@@ -19,7 +19,7 @@ f:	.long	0
 	call	printint
 	movq	%rax, %r9
 	leaq	c(%rip), %r8
-	movq	$1, %r9
+	movq	$2, %r9
 	salq	$2, %r9
 	addq	%r8, %r9
 	movq	%r9, e(%rip)
@@ -48,7 +48,7 @@ main:
 	call	printint
 	movq	%rax, %r9
 	leaq	c(%rip), %r8
-	movq	$1, %r9
+	movq	$2, %r9
 	salq	$2, %r9
 	addq	%r8, %r9
 	movq	%r9, e(%rip)

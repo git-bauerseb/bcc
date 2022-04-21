@@ -2,6 +2,8 @@
 #define DEFINITIONS_H
 
 #define NOREG (-1)
+#define NOLABEL 0
+
 
 enum {
     A_ADD = 1,
@@ -31,7 +33,9 @@ enum {
     A_FUNCTION_CALL,
     A_RETURN,
     A_ADDR,
-    A_DEREFERENCE
+    A_DEREFERENCE,
+
+    A_STRLIT
 };
 
 /*

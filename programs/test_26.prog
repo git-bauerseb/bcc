@@ -1,0 +1,9 @@
+char * str;
+
+int main() {
+    for ( str = "THIS IS A TEST\n" ; * str != 0; str = str + 1) {
+        printchar( *str );
+    }
+    
+    return 0;
+}

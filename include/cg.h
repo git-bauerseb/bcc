@@ -39,6 +39,8 @@ void cgglobsym(int id);
 
 void cgprintint(int r);
 
+int cgstorderef(int r1, int r2, int type);
+
 /*
     Add two registers together and return
     the index of the register with the result.
@@ -89,6 +91,8 @@ int cgprimsize(int type);
 
 int cgcall(int r, int id);
 void cgreturn(int reg, int function_id);
+void cgglobstr(int label, char* text);
+int cgloadglobstr(int label);
 
 extern FILE* outfile;
 

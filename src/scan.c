@@ -9,6 +9,12 @@ static void putback(int);
 static int char_index(char*, int);
 static int scan_int(int);
 
+// Scan character
+static int scanch(void);
+
+// Scan string
+static int scanstr(char* buff);
+
 static int scan_identifier(int c, char* buff, int lim);
 
 static t_token* rejected_token = NULL;
@@ -164,12 +170,32 @@ int scan(t_token* t) {
         case EOF:
             t->token = T_EOF;
             return 0;
+        case '^':
+            t->token = T_XOR;
+            break;
         case '+':
-            t->token = T_PLUS;
+            if ((c = next()) == '+') {
+                t->token = T_INCREMENT;
+            } else {
+                t->token = T_PLUS;
+            }
             break;
         case '-':
-            t->token = T_MINUS;
+            if ((c = next()) == '-') {
+                t->token = T_DECREMENT;
+            } else {
+                t->token = T_MINUS;
+            }
             break;
+        case '|':
+            if ((c = next()) == '|') {
+                t->token = T_LOGIC_OR;
+            } else {
+                t->token = T_OR;
+            }
+            break;
+        case '~':
+            t->token = T_INVERT;
         case '*':
             t->token = T_STAR;
             break;
@@ -191,7 +217,7 @@ int scan(t_token* t) {
             break;
         case '&':
             if ((c = next()) == '&') {
-                t->token = T_LOGAND;
+                t->token = T_LOGIC_AND;
             } else {
                 t->token = T_AMPER;
             }
@@ -200,23 +226,28 @@ int scan(t_token* t) {
             if ((c = next()) == '=') {
                 t->token = T_NOT_EQUAL;
             } else {
-                fprintf(stderr, "Unrecongized character %c\n", c);
+                putback(c);
+                t->token = T_LOGIC_NOT;
             }
             break;
         case '<':
             if ((c = next()) == '=') {
                 t->token = T_LESS_EQUAL;
+            } else if ((c = next()) == '<'){
+                t->token = T_LSHIFT;
             } else {
                 putback(c);
-                t->token = T_LESS_THAN;
+                t->token = T_LESS_THAN;  
             }
             break;
         case '>':
             if ((c = next()) == '=') {
                 t->token = T_GREATER_EQUAL;
+            } else if ((c = next()) == '>'){
+                t->token = T_RSHIFT;
             } else {
                 putback(c);
-                t->token = T_GREATER_THAN;
+                t->token = T_GREATER_THAN;  
             }
             break;
         case '(': 
@@ -230,6 +261,24 @@ int scan(t_token* t) {
             break;
         case '}':
             t->token = T_RIGHT_BRACE;
+            break;
+        case '[':
+            t->token = T_LEFT_BRACKET;
+            break;
+        case ']':
+            t->token = T_RIGHT_BRACKET;
+            break;
+        case '\'':
+            t->value = scanch();
+            t->token = T_INTLIT;
+            if (next() != '\'') {
+                fprintf(stderr, "Expecte '\'' at end of character.\n");
+                exit(1);
+            }
+            break;
+        case '"':
+            scanstr(text);
+            t->token = T_STRINGLIT;
             break;
         default:
             if (isdigit(c)) {
@@ -254,4 +303,41 @@ int scan(t_token* t) {
     }
 
     return 1;
+}
+
+
+static int scanch(void) {
+    int c;
+    c = next();
+
+    if (c == '\\') {
+        switch (c = next()) {
+            case 'n': return '\n';
+            case '\\': return '\\';
+            case '\'': return '\'';
+            default:
+                fprintf(stderr, "Unknown escape sequence for %c.\n", c);
+                exit(1);
+        }
+    }
+
+    return c;
+}
+
+static int scanstr(char* buff) {
+    int i,c;
+
+    for (i = 0; i < TEXTLEN - 1; i++) {
+        // End string here
+        if ((c = scanch()) == '"') {
+            buff[i] = 0;
+            return i;
+        }
+
+        buff[i] = c;
+    }
+
+    fprintf(stderr, "String literal too long.\n");
+    exit(1);
+    return 0;
 }

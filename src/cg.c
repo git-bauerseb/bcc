@@ -129,6 +129,24 @@ int cgloadglob(int id) {
     return r;
 }
 
+int cgstorderef(int r1, int r2, int type) {
+    switch (type) {
+        case P_CHAR:
+            fprintf(outfile, "\tmovb\t%s, (%s)\n", byte_register_list[r1], register_list[r2]);
+            break;
+        case P_INT:
+            fprintf(outfile, "\tmovq\t%s, (%s)\n", register_list[r1], register_list[r2]);
+            break;
+        case P_LONG:
+            fprintf(outfile, "\tmovq\t%s, (%s)\n", register_list[r1], register_list[r2]);
+            break;
+        default:
+            fprintf(stderr, "Cant cgstoderef on type: %d\n", type);
+    }
+    
+    return r1;
+}
+
 int cgstoreglob(int r, int id) {
     switch (global_symbols[id].type) {
         case P_CHAR:
@@ -184,12 +202,34 @@ void cgglobsym(int id) {
     typesize = cgprimsize(global_symbols[id].type);
 
     fprintf(outfile, "\t.data\n" "\t.globl\t%s\n", global_symbols[id].name);
-    switch(typesize) {
-        case 1: fprintf(outfile, "%s:\t.byte\t0\n", global_symbols[id].name); break;
-        case 4: fprintf(outfile, "%s:\t.long\t0\n", global_symbols[id].name); break;
-        case 8: fprintf(outfile, "%s:\t.quad\t0\n", global_symbols[id].name); break;
-        default: fprintf(stderr, "Unknown typesize in cgglobsym: %d\n", typesize); exit(1);
-  }
+    fprintf(outfile, "%s:", global_symbols[id].name);
+
+    for (int i = 0; i < global_symbols[id].size; i++) {
+        switch(typesize) {
+            case 1: fprintf(outfile, "\t.byte\t0\n"); break;
+            case 4: fprintf(outfile, "\t.long\t0\n"); break;
+            case 8: fprintf(outfile, "\t.quad\t0\n"); break;
+            default: fprintf(stderr, "Unknown typesize in cgglobsym: %d\n", typesize); exit(1);
+        }
+    }
+}
+
+void cgglobstr(int label, char* text) {
+    cglabel(label);
+
+    for (;*text != '\0'; text++) {
+        fprintf(outfile, "\t.byte\t%d\n", *text);
+    }
+
+    fprintf(outfile, "\t.byte\t0\n");
+}
+
+int cgloadglobstr(int label) {
+    int r = allocate_register();
+
+    fprintf(outfile, "\tleaq\tL%d(%%rip), %s\n", label, register_list[r]);
+
+    return r;
 }
 
 int cgwiden(int r, int oldtype, int newtype) {
@@ -338,7 +378,7 @@ int cgderef(int r, int type) {
             fprintf(outfile, "\tmovq\t(%s), %s\n", register_list[r], register_list[r]);
             break;
     }
-    return (r);
+    return r;
 }
 
 int cgshlconst(int r, int val) {

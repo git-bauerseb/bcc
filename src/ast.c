@@ -3,6 +3,15 @@
 /*
     Forward Declarations.
 */
+static char* ast_names[] = {
+    "A_ADD", "A_SUBTRACT", "A_MULTIPLY", "A_DIVIDE",
+    "A_EQUALS", "A_NOT_EQUALS", "A_LESS_THAN", "A_GREATER_THAN",
+    "A_LESS_EQUAL", "A_GREATER_EQUAL",
+    "A_INTLIT", "A_IDENTIFIER", "A_LVIDENT",
+    "A_ASSIGN", "A_PRINT", "A_GLUE", "A_IF", "A_WHILE",
+    "A_FOR", "A_FUNCTION", "A_WIDEN", "A_SCALE", "A_FUNCTION_CALL",
+    "A_RETURN", "A_ADDR", "A_DEREFERENCE"
+};
 
 // Parsing functions
 
@@ -26,6 +35,8 @@ static t_astnode* return_statement(void);
 
 
 // Expressions
+static t_astnode* array_access(void);
+static t_astnode* assignment_expression(void);
 static t_astnode* equals_expression(void);
 static t_astnode* comparison_expression(void);
 static t_astnode* term_expression(void);
@@ -39,13 +50,15 @@ static int get_primitive_size(int type);
 
 // Helper Functions
 static int isCompOperator(int tokenType);
-
 static int type_compatible(int* left, int* right, int onlyright);
-
 static void convert_types(t_astnode** left, t_astnode** right, int op);
 
+static void print_ast(t_astnode* root, int depth);
+
+static int inttype(int type);
+
 static t_astnode* binary_expression(void) {
-    t_astnode* expr = comparison_expression();
+    t_astnode* expr = assignment_expression();
 
     return expr;
 }
@@ -163,6 +176,7 @@ void global_declarations(void) {
         if (token.token == T_LEFT_PAREN) {
             tree = function_declaration(type);
             generate_ast(tree, NOREG, 0);
+            // print_ast(tree, 0);
         } else {
             var_declaration(type);
         }
@@ -173,11 +187,53 @@ void global_declarations(void) {
     }
 }
 
+
+static t_astnode* array_access(void) {
+    t_astnode* left, *right;
+    int id;
+
+    if ((id = find_global(text)) == -1 || global_symbols[id].stype != S_ARRAY) {
+        fprintf(stderr, "Undeclared array %s.\n", text);
+        exit(1);
+    }
+
+    /*
+        Array access is modeled as pointer addition:
+
+        arr[5] --> *(arr + 5)
+    */
+    left = make_ast_leaf(A_ADDR, global_symbols[id].type, id);
+
+    // '['
+    match(T_LEFT_BRACKET, "Expected '[' for array access.");
+
+    right = binary_expression();
+
+    // ']'
+    match(T_RIGHT_BRACKET, "Expected ']' after array access.");
+
+    if (!inttype(right->type)) {
+        fprintf(stderr, "Only integral value in array access allowed.");
+        exit(1);
+    }
+
+    // Scale index by size of element type
+    right = modify_type(right, left->type, A_ADD);
+
+    left = make_astnode(A_ADD, global_symbols[id].type, left, right, 0);
+    left = make_ast_unary(A_DEREFERENCE, value_at(left->type), left, 0);
+    return left;
+}
+
 static t_astnode* primary(void) {
     t_astnode* n;
     int id;
 
     switch (token.token) {
+        case T_STRINGLIT:
+            id = generate_global_string(text);
+            n = make_ast_leaf(A_STRLIT, P_CHARPTR, id);
+            break;
         case T_INTLIT:
             // Save as char if it fits in range
             if (token.value >= 0 && token.value < 256) {
@@ -186,6 +242,13 @@ static t_astnode* primary(void) {
                 n = make_ast_leaf(A_INTLIT, P_INT, token.value);
             }
             break;
+        
+        // Grouping '(' expression ')'
+        case T_LEFT_PAREN:
+            scan(&token);
+            n = binary_expression();
+            match(T_RIGHT_PAREN, "Expected ')'");
+            return n;
         case T_IDENTIFIER:
 
             // Distinguish between function call and variable
@@ -194,6 +257,10 @@ static t_astnode* primary(void) {
 
             if (token.token == T_LEFT_PAREN) {
                 return function_calls();
+            }
+
+            if (token.token == T_LEFT_BRACKET) {
+                return array_access();
             }
 
             reject_token(&token);
@@ -224,6 +291,7 @@ t_astnode* term_expression(void) {
     type = token.token;
 
     if (type == T_SEMICOLON) {
+        left->rvalue = 1;
         return left;
     }
 
@@ -231,6 +299,7 @@ t_astnode* term_expression(void) {
         scan(&token);
 
         right = factor_expression();
+        left->rvalue = right->rvalue = 1;
         convert_types(&left, &right, type);
 
         left = make_astnode(arithop(type), left->type, left, right, 0);
@@ -253,12 +322,14 @@ t_astnode* factor_expression(void) {
     type = token.token;
 
     if (type == T_EOF) {
+        left->rvalue = 1;
         return left;
     }
 
     while ((type == T_STAR) || (type == T_SLASH)) {
         scan(&token);
         right = prefix();
+        left->rvalue = right->rvalue = 1;
         convert_types(&left, &right, type);
 
         left = make_astnode(arithop(type), left->type, left, right, 0);
@@ -317,6 +388,7 @@ static t_astnode* function_calls(void) {
     match(T_LEFT_PAREN, "(");
 
     tree = binary_expression();
+    tree->rvalue = 1;
     tree = make_ast_unary(A_FUNCTION_CALL, global_symbols[id].type, tree, id);
     match(T_RIGHT_PAREN, ")");
 
@@ -385,6 +457,7 @@ static t_astnode* equals_expression(void) {
     type = token.token;
 
     if (type == T_SEMICOLON) {
+        left->rvalue = 1;
         return left;
     }
 
@@ -392,6 +465,7 @@ static t_astnode* equals_expression(void) {
         scan(&token);
 
         right = term_expression();
+        left->rvalue = right->rvalue = 1;
         convert_types(&left, &right, type);
 
         left = make_astnode(arithop(type), left->type, left, right, 0);
@@ -414,6 +488,7 @@ static t_astnode* comparison_expression(void) {
     type = token.token;
 
     if (type == T_SEMICOLON) {
+        left->rvalue = 1;
         return left;
     }
 
@@ -421,8 +496,9 @@ static t_astnode* comparison_expression(void) {
         scan(&token);
 
         right = equals_expression();
+        // Change this in every expression
+        left->rvalue = right->rvalue = 1;
         convert_types(&left, &right, type);
-
         left = make_astnode(arithop(type), left->type, left, right, 0);
 
         type = token.token;
@@ -434,6 +510,38 @@ static t_astnode* comparison_expression(void) {
     return left;
 }
 
+
+static t_astnode* assignment_expression(void) {
+    t_astnode* left, *right;
+    int type;
+
+    left = equals_expression();
+
+    type = token.token;
+
+    if (type == T_SEMICOLON) {
+        left->rvalue = 1;
+        return left;
+    }
+
+    while (token.token == T_ASSIGNMENT) {
+        scan(&token);
+
+        right = assignment_expression();
+        // Here, only right (assignment target) is rvalue
+        right->rvalue = 1;
+        modify_type(right, left->type, 0);
+
+        left = make_astnode(arithop(type), left->type, right, left, 0);
+
+        type = token.token;
+        if (type == T_SEMICOLON) {
+            return left;
+        }
+    }
+
+    return left;
+}
 
 
 
@@ -449,28 +557,31 @@ void match(int t, char* to_match) {
 
 
 static void var_declaration(int type) {
-
     int id;
 
-    while (1) {
+    // Text now has the identifier's name.
+    // If the next token is a '['
+    if (token.token == T_LEFT_BRACKET) {
+    // Skip past the '['
+    scan(&token);
 
-        id = add_global(text, type, S_VARIABLE, 0);
+    if (token.token == T_INTLIT) {
+        id = add_global(text, pointer_to(type), S_ARRAY, 0, token.value);
         generate_global_symbol(id);
-
-        if (token.token == T_SEMICOLON) {
-            scan(&token);
-            return;
-        }
-
-        if (token.token == T_COMMA) {
-            scan(&token);
-            match(T_IDENTIFIER, "identifier");
-            continue;
-        }
-
-
-        fprintf(stderr, "Missing ',' or ';' after identifier.\n");
     }
+
+    // Ensure we have a following ']'
+    scan(&token);
+    match(T_RIGHT_BRACKET, "]");
+    } else {
+    // Add this as a known scalar
+    // and generate its space in assembly
+    id = add_global(text, type, S_VARIABLE, 0, 1);
+    generate_global_symbol(id);
+    }
+
+    // Get the trailing semicolon
+    match(T_SEMICOLON, ";");
 }
 
 // ***********************************************************************
@@ -622,8 +733,6 @@ static t_astnode* single_statement() {
             match(T_IDENTIFIER, "identifier");
             var_declaration(type);
             return NULL;
-        case T_IDENTIFIER:
-            return assignment_statement();
         case T_IF:
             return if_statement();
         case T_WHILE:
@@ -633,7 +742,8 @@ static t_astnode* single_statement() {
         case T_RETURN:
             return return_statement();
         default:
-            fprintf(stderr, "Syntax error, token %d\n", token.token);
+            return binary_expression();
+            // fprintf(stderr, "Syntax error, token %d\n", token.token);
     }
 }
 
@@ -665,7 +775,7 @@ static t_astnode* function_declaration(int type) {
 
     int endlabel = label();
 
-    nameslot = add_global(text, type, S_FUNCTION, endlabel);
+    nameslot = add_global(text, type, S_FUNCTION, endlabel, 0);
     current_function_id = nameslot;
 
     match(T_LEFT_PAREN, "(");
@@ -697,7 +807,7 @@ static t_astnode* compound_statement() {
         tree = single_statement();
 
         if (tree != NULL 
-            && (tree->op == A_PRINT || tree->op == A_ASSIGN
+            && (tree->op == A_ASSIGN
                 || tree->op == A_FUNCTION_CALL || tree->op == A_RETURN)) {
             match(T_SEMICOLON, ";");
         }
@@ -733,6 +843,7 @@ static int pointer_type(int type) {
     return 0;
 }
 
+
 // ***********************************************************************
 // HELPER FUNCTIONS
 // ***********************************************************************
@@ -767,9 +878,42 @@ t_astnode* modify_type(t_astnode* tree, int rtype, int op) {
 
             if (rsize > 1) {
                 return make_ast_unary(A_SCALE, rtype, tree, rsize);
+            } else {
+                return tree;    // No need to scale
             }
         }
     }
 
     return NULL;
+}
+
+static void print_ast(t_astnode* root, int depth) {
+
+    if (root == NULL) {return;}
+
+    char prefBuff[depth+1];
+
+    for (int i = 0; i < depth; i++) {prefBuff[i]=' ';}
+    prefBuff[depth] = '\0';
+
+    char* ast_name = ast_names[root->op-1];
+
+    switch (root->op) {
+        case A_ASSIGN: printf("%s%s\n", prefBuff, ast_name); break;
+        case A_IDENTIFIER: printf("%s%s(%s) %s\n", prefBuff, ast_name, global_symbols[root->v.id].name, root->rvalue != 0 ? "rvalue" : ""); break;
+        case A_INTLIT: printf("%s%s(%d) %s\n", prefBuff, ast_name, root->v.value, root->rvalue != 0 ? "rvalue" : ""); break;
+        case A_FUNCTION: printf("%s%s\n", prefBuff, ast_name); break;
+        case A_GLUE: printf("%s%s\n", prefBuff, ast_name); break;
+        case A_RETURN: printf("%s%s\n", prefBuff, ast_name); break;
+        case A_DEREFERENCE: printf("%s%s %s\n", prefBuff, ast_name, root->rvalue != 0 ? "rvalue" : ""); break;
+        case A_FUNCTION_CALL: printf("%s%s %s\n", prefBuff, ast_name, root->rvalue != 0 ? "rvalue" : ""); break;
+    }
+
+    if (root->left != NULL) {
+        print_ast(root->left, root->op == A_WIDEN ? depth : depth+2);
+    }
+
+    if (root->right != NULL) {
+        print_ast(root->right, root->op == A_WIDEN ? depth : depth+2);
+    }
 }

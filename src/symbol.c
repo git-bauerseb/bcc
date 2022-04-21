@@ -26,7 +26,7 @@ int find_global(char* s) {
     return -1;
 }
 
-int add_global(char* name, int type, int stype, int endlabel) {
+int add_global(char* name, int type, int stype, int endlabel, int size) {
     int y;
 
     if ((y = find_global(name)) != -1) {
@@ -38,5 +38,6 @@ int add_global(char* name, int type, int stype, int endlabel) {
     global_symbols[y].type = type;
     global_symbols[y].stype = stype;
     global_symbols[y].endlabel = endlabel;
+    global_symbols[y].size = size;
     return y;
 }

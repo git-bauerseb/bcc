@@ -13,6 +13,7 @@
 typedef struct astnode {
     int op;
     int type;
+    int rvalue;                 // True if the node is an rvalue
     struct astnode* left;
     struct astnode* middle;
     struct astnode* right;
@@ -49,6 +50,7 @@ t_astnode* modify_type(t_astnode* tree, int rtype, int op);
 
 
 extern int generate_ast(t_astnode* n, int reg, int parentASTop);
+extern int generate_global_string(char* text);
 extern int label(void);
 
 extern t_token token;

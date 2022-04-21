@@ -46,9 +46,24 @@ enum {
     T_RETURN,       // 'return' keyword
 
     T_AMPER,        // '&'
-    T_LOGAND,       // '&&'
 
     T_COMMA,        // ','
+
+    T_LEFT_BRACKET, // '['
+    T_RIGHT_BRACKET,// ']'
+
+    T_STRINGLIT,    // Representing a string literal
+
+    T_LOGIC_OR,     // '||'
+    T_LOGIC_AND,    // '&&'
+    T_OR,           // '|'
+    T_XOR,          // '^'
+    T_LSHIFT,       // '<<'
+    T_RSHIFT,       // '>>'
+    T_INCREMENT,    // '++'
+    T_DECREMENT,    // '--'
+    T_INVERT,       // '~'
+    T_LOGIC_NOT,    // '!'
 
     T_EOF
 };

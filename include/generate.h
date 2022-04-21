@@ -15,6 +15,7 @@
 int generate_ast(t_astnode* n, int reg, int parentASTop);
 
 void generate_global_symbol(int id);
+int generate_global_string(char* text);
 int label(void);
 
 #endif

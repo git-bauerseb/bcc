@@ -23,19 +23,24 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
         case A_WHILE:
             return generate_while_AST(n);
         case A_GLUE:
-            generate_ast(n->left, NOREG, n->op);
+            generate_ast(n->left, NOLABEL, n->op);
             generate_free_registers();
-            generate_ast(n->right, NOREG, n->op);
+            generate_ast(n->right, NOLABEL, n->op);
             generate_free_registers();
+            return NOREG;
+        case A_FUNCTION:
+            cgfunctionpreamble(n->v.id);
+            generate_ast(n->left, NOLABEL, n->op);
+            cgfunctionpostamble(n->v.id);
             return NOREG;
     }
 
     if (n->left) {
-        leftreg = generate_ast(n->left, NOREG, n->op);
+        leftreg = generate_ast(n->left, NOLABEL, n->op);
     }
 
     if (n->right) {
-        rightreg = generate_ast(n->right, leftreg, n->op);
+        rightreg = generate_ast(n->right, NOLABEL, n->op);
     }
 
     switch (n->op) {
@@ -44,9 +49,19 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
         case A_MULTIPLY: return cgmul(leftreg, rightreg);
         case A_DIVIDE: return cgdiv(leftreg, rightreg);
         case A_INTLIT: return cgloadint(n->v.value);
-        case A_IDENTIFIER: return cgloadglob(n->v.id);
+        case A_IDENTIFIER:
+            if (n->rvalue || parentASTop== A_DEREFERENCE) {
+                return (cgloadglob(n->v.id));
+            } else {
+                return NOREG;
+            }
         case A_LVIDENT: return cgstoreglob(reg, n->v.id);
-        case A_ASSIGN: return rightreg;
+        case A_ASSIGN: 
+            switch (n->right->op) {
+                case A_IDENTIFIER: return (cgstoreglob(leftreg, n->right->v.id));
+                case A_DEREFERENCE: return (cgstorderef(leftreg, rightreg, n->right->type));
+                default: fprintf(stderr, "Cant assign in generate_ast(), op: %d\n", n->op);
+            }
         case A_EQUALS:
         case A_NOT_EQUAL:
         case A_LESS_THAN:
@@ -62,12 +77,6 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
             generate_printint(leftreg);
             generate_free_registers();
             return NOREG;
-        case A_FUNCTION:
-
-            cgfunctionpreamble(n->v.id);
-            generate_ast(n->left, NOREG, n->op);
-            cgfunctionpostamble(n->v.id);
-            return NOREG;
         case A_WIDEN:
             // Widen children type to parent type
             return cgwiden(leftreg, n->left->type, n->type);
@@ -79,7 +88,12 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
         case A_ADDR:
             return cgaddress(n->v.id);
         case A_DEREFERENCE:
-            return cgderef(leftreg, n->left->type);
+            // If rvalue -> dereference, else leave for for assignment to store through pointer
+            if (n->rvalue) {
+                return cgderef(leftreg, n->left->type);
+            } else {
+                return leftreg;
+            }
         case A_SCALE:
             switch (n->v.size) {
                 case 2: return cgshlconst(leftreg, 1);
@@ -89,16 +103,27 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
                     rightreg = cgloadint(n->v.size);
                     return cgmul(leftreg, rightreg);
             }
+        case A_STRLIT:
+            return cgloadglobstr(n->v.id);
         default:
             fprintf(stderr, "Unknown AST operator %d\n", n->op);
             exit(1);
     }
+
+    return NOREG;
 }
 
 void generate_global_symbol(int id) {
     cgglobsym(id);
 }
 
+int generate_global_string(char* text) {
+    int l = label();
+
+    cgglobstr(l, text);
+
+    return l;
+}
 
 int label(void) {
     static int id = 1;
@@ -120,7 +145,7 @@ static int generate_if_AST(t_astnode* n) {
     generate_ast(n->left, lfalse, n->op);
     generate_free_registers();
 
-    generate_ast(n->middle, NOREG, n->op);
+    generate_ast(n->middle, NOLABEL, n->op);
     generate_free_registers();
 
     if (n->right) {
@@ -130,7 +155,7 @@ static int generate_if_AST(t_astnode* n) {
     cglabel(lfalse);
 
     if (n->right) {
-        generate_ast(n->right, NOREG, n->op);
+        generate_ast(n->right, NOLABEL, n->op);
         generate_free_registers();
         cglabel(lend);
     }
@@ -148,7 +173,7 @@ static int generate_while_AST(t_astnode* n) {
     generate_ast(n->left, lend, n->op);
     generate_free_registers();
 
-    generate_ast(n->right, NOREG, n->op);
+    generate_ast(n->right, NOLABEL, n->op);
     generate_free_registers();
 
     cgjump(lstart);
