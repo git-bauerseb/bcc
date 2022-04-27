@@ -30,11 +30,16 @@ static t_astnode* assignment_statement(void);
 static t_astnode* while_statement(void);
 static t_astnode* single_statement(void);
 static t_astnode* compound_statement(void);
-
 static t_astnode* return_statement(void);
 
 
 // Expressions
+
+/*
+    <<, >> operators
+*/
+static t_astnode* shift_expression(void);
+
 static t_astnode* array_access(void);
 static t_astnode* assignment_expression(void);
 static t_astnode* equals_expression(void);
@@ -43,6 +48,9 @@ static t_astnode* term_expression(void);
 static t_astnode* factor_expression(void);
 
 static t_astnode* primary(void);
+
+static t_astnode* or_expression(void);
+static t_astnode* and_expression(void);
 
 // Types
 static int parse_type(int t);
@@ -133,6 +141,18 @@ int arithop(int tok) {
             return A_LESS_THAN;
         case T_LESS_EQUAL:
             return A_LESS_EQUAL;
+
+        // Left shift
+        case T_LSHIFT:
+            return A_LSHIFT;
+        // Right shift
+        case T_RSHIFT:
+            return A_RSHIFT;
+        case T_OR:
+            return A_OR;
+        // '&' operator
+        case T_AMPER:
+            return A_AND;
     default:
         fprintf(stderr, "Unknown token on line %d\n", line);
         exit(1);
@@ -313,6 +333,37 @@ t_astnode* term_expression(void) {
     return left;
 }
 
+static t_astnode* shift_expression(void) {
+    t_astnode* left, *right;
+    int type;
+
+    left = term_expression();
+
+    type = token.token;
+
+    if (type == T_SEMICOLON) {
+        left->rvalue = 1;
+        return left;
+    }
+
+    while (token.token == T_LSHIFT || token.token == T_RSHIFT) {
+        scan(&token);
+
+        right = term_expression();
+        left->rvalue = right->rvalue = 1;
+        convert_types(&left, &right, type);
+
+        left = make_astnode(arithop(type), left->type, left, right, 0);
+
+        type = token.token;
+        if (type == T_SEMICOLON) {
+            return left;
+        }
+    }
+
+    return left;
+}
+
 t_astnode* factor_expression(void) {
     t_astnode* left, *right;
     int type;
@@ -452,7 +503,7 @@ static t_astnode* equals_expression(void) {
     t_astnode* left, *right;
     int type;
 
-    left = term_expression();
+    left = shift_expression();
 
     type = token.token;
 
@@ -464,7 +515,7 @@ static t_astnode* equals_expression(void) {
     while (token.token == T_EQUALS || token.token == T_NOT_EQUAL) {
         scan(&token);
 
-        right = term_expression();
+        right = shift_expression();
         left->rvalue = right->rvalue = 1;
         convert_types(&left, &right, type);
 
@@ -510,12 +561,73 @@ static t_astnode* comparison_expression(void) {
     return left;
 }
 
+static t_astnode* and_expression(void) {
+    t_astnode* left, *right;
+    int type;
+
+    left = equals_expression();
+    type = token.token;
+
+    if (type == T_SEMICOLON) {
+        left->rvalue = 1;
+        return left;
+    }
+
+    while (token.token == T_AMPER) {
+        scan(&token);
+
+        right = equals_expression();
+        left->rvalue = right->rvalue = 1;
+        convert_types(&left, &right, type);
+
+        left = make_astnode(arithop(type), left->type, left, right, 0);
+        type = token.token;
+        if (type == T_SEMICOLON) {
+            return left;
+        }
+
+    }
+
+    return left;
+}
+
+
+static t_astnode* or_expression(void) {
+    t_astnode* left, *right;
+    int type;
+
+    left = and_expression();
+    type = token.token;
+
+    if (type == T_SEMICOLON) {
+        left->rvalue = 1;
+        return left;
+    }
+
+    while (token.token == T_OR) {
+        scan(&token);
+
+        right = and_expression();
+        left->rvalue = right->rvalue = 1;
+        convert_types(&left, &right, type);
+
+        left = make_astnode(arithop(type), left->type, left, right, 0);
+        type = token.token;
+        if (type == T_SEMICOLON) {
+            return left;
+        }
+
+    }
+
+    return left;
+}
+
 
 static t_astnode* assignment_expression(void) {
     t_astnode* left, *right;
     int type;
 
-    left = equals_expression();
+    left = or_expression();
 
     type = token.token;
 

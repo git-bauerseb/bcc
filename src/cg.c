@@ -257,6 +257,32 @@ int cgsub(int r1, int r2) {
     return r1;
 }
 
+int cgshift_l(int r1, int r2) {
+    fprintf(outfile, "\tmovb\t%s, %%cl\n", byte_register_list[r2]);
+    fprintf(outfile, "\tshlq\t%%cl, %s\n", register_list[r1]);
+    free_register(r2);
+    return r1;
+}
+
+int cgshift_r(int r1, int r2) {
+    fprintf(outfile, "\tmovb\t%s, %%cl\n", byte_register_list[r2]);
+    fprintf(outfile, "\tshrq\t%%cl, %s\n", register_list[r1]);
+    free_register(r2);
+    return r1;
+}
+
+int cg_or(int r1, int r2) {
+    fprintf(outfile, "\torq\t\t%s, %s\n", register_list[r1], register_list[r2]);
+    free_register(r1);
+    return r2;
+}
+
+int cg_and(int r1, int r2) {
+    fprintf(outfile, "\tandq\t\t%s, %s\n", register_list[r1], register_list[r2]);
+    free_register(r1);
+    return r2;
+}
+
 int cgdiv(int r1, int r2) {
 
     fprintf(outfile, "\tmovq\t%s,%%rax\n", register_list[r1]);

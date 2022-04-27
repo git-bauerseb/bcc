@@ -34,8 +34,11 @@ enum {
     A_RETURN,
     A_ADDR,
     A_DEREFERENCE,
-
-    A_STRLIT
+    A_STRLIT,
+    A_LSHIFT,
+    A_RSHIFT,
+    A_OR,                   // '|' operator
+    A_AND                   // '&' operator
 };
 
 /*

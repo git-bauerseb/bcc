@@ -1,0 +1,9 @@
+int a;
+
+int main() {
+    a = 2 & 1;
+
+    printint(a);
+
+    return 0;
+}

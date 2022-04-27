@@ -94,6 +94,11 @@ void cgreturn(int reg, int function_id);
 void cgglobstr(int label, char* text);
 int cgloadglobstr(int label);
 
+int cgshift_l(int r1, int r2);
+int cgshift_r(int r1, int r2);
+int cg_or(int r1, int r2);
+int cg_and(int r1, int r2);
+
 extern FILE* outfile;
 
 

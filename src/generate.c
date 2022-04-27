@@ -49,6 +49,10 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
         case A_MULTIPLY: return cgmul(leftreg, rightreg);
         case A_DIVIDE: return cgdiv(leftreg, rightreg);
         case A_INTLIT: return cgloadint(n->v.value);
+        case A_LSHIFT: return cgshift_l(leftreg, rightreg);
+        case A_RSHIFT: return cgshift_r(leftreg, rightreg);
+        case A_OR: return cg_or(leftreg, rightreg);
+        case A_AND: return cg_and(leftreg, rightreg);
         case A_IDENTIFIER:
             if (n->rvalue || parentASTop== A_DEREFERENCE) {
                 return (cgloadglob(n->v.id));

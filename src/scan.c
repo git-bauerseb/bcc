@@ -233,7 +233,7 @@ int scan(t_token* t) {
         case '<':
             if ((c = next()) == '=') {
                 t->token = T_LESS_EQUAL;
-            } else if ((c = next()) == '<'){
+            } else if (c == '<'){
                 t->token = T_LSHIFT;
             } else {
                 putback(c);
@@ -243,7 +243,7 @@ int scan(t_token* t) {
         case '>':
             if ((c = next()) == '=') {
                 t->token = T_GREATER_EQUAL;
-            } else if ((c = next()) == '>'){
+            } else if (c == '>'){
                 t->token = T_RSHIFT;
             } else {
                 putback(c);

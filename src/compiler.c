@@ -7,9 +7,60 @@
 #include "../include/cg.h"
 #include "../include/symbol.h"
 
-t_symbol_entry* global_symbols;
+char* token_names[] = {
+    "T_PLUS",
+    "T_MINUS",
+    "T_STAR",
+    "T_SLASH",
+    "T_INTLIT",
+    "T_SEMICOLON",
+    "T_PRINT",
+    "T_INT",
+    "T_ASSIGNMENT",
+    "T_IDENTIFIER",
 
-char* tokstr[] = {"+", "-", "*", "/", "intlit"};
+    "T_EQUALS",
+    "T_NOT_EQUALS",
+    "T_LESS_THAN",
+    "T_LESS_EQUAL",
+    "T_GREATER_THAN",
+    "T_GREATER_EQUAL",
+
+    "T_LEFT_BRACE",
+    "T_RIGHT_BRACE",
+    "T_LEFT_PAREN",
+    "T_RIGHT_PAREN",
+
+    "T_IF",
+    "T_WHILE",
+    "T_ELSE",
+    "T_FOR",
+    "T_VOID",
+
+    "T_CHAR",
+    "T_LONG",
+    "T_RETURN",
+    "T_AMPER",
+    "T_COMMA",
+
+    "T_LEFT_BRACKET",
+    "T_RIGHT_BRACKET",
+    "T_STRINGLIT",
+    "T_LOGIC_OR",
+    "T_LOGIC_AND",
+    "T_OR",
+    "T_XOR",
+    "T_LSHIFT",
+    "T_RSHIFT",
+    "T_INCREMENT",
+    "T_DECREMENT",
+    "T_INVERT",
+    "T_LOGIC_NOT",
+
+    "T_EOF"
+};
+
+t_symbol_entry* global_symbols;
 
 FILE* infile;
 
@@ -34,32 +85,24 @@ static void init() {
     global_symbols = (t_symbol_entry*)calloc(sizeof(t_symbol_entry), NUM_SYMBOLS);
 }
 
-static void scanfile() {
-    t_token t;
+static void scanner_test() {
+    // Assumed: infile = fopen(argv[1], "r");
+    scan(&token);
 
-    while (scan(&t)) {
-        printf("Token %s", tokstr[t.token]);
-        if (t.token == T_INTLIT) {
-            printf(", value %d", t.value);
-        }
-
-        if (t.token == T_PRINT) {
-            printf(", print");
-        }
-
-        if (t.token == T_SEMICOLON) {
-            printf(", ;");
-        }
-
-        putchar('\n');
+    while (token.token != T_EOF) {
+        printf("TOKEN: %s\n", token_names[token.token-1]);
+        scan(&token);
     }
 }
 
 int main(int argc, char** argv) {
 
+
     t_astnode* tree;
 
     init();
+
+    
     infile = fopen(argv[1], "r");
     outfile = fopen(argv[2], "w");
 
@@ -73,6 +116,7 @@ int main(int argc, char** argv) {
 
     fclose(outfile);
     exit(0);
-
+    
+    
     return 0;
 }
