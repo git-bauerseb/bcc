@@ -20,9 +20,10 @@ void cgpostamble(void);
 int cgloadint(int value);
 
 /*
-    Load value of global variable into a register.
+    Load value of global variable into a register. The loading depends
+    on the operation.
 */
-int cgloadglob(int id);
+int cgloadglob(int id, int op);
 
 /*
     Store register value into a variable.
@@ -59,6 +60,7 @@ int cglessthan(int r1, int r2);
 int cggreaterthan(int r1, int r2);
 int cglessequal(int r1, int r2); 
 int cggreaterequal(int r1, int r2);
+
 
 
 void cgfunctionpreamble(int id);
@@ -98,6 +100,13 @@ int cgshift_l(int r1, int r2);
 int cgshift_r(int r1, int r2);
 int cg_or(int r1, int r2);
 int cg_and(int r1, int r2);
+
+int cg_negate(int r1);
+
+int cg_logic_not(int r1);
+
+int cg_invert(int r1);
+int cgxor(int r1, int r2);
 
 extern FILE* outfile;
 

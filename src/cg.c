@@ -81,6 +81,17 @@ int cglessequal(int r1, int r2) {return cgcompare(r1, r2, "setle");}
 int cggreaterequal(int r1, int r2) {return cgcompare(r1, r2, "setge");}
 
 
+int cg_invert(int r1) {
+    fprintf(outfile, "\tnotq\t%s\n", register_list[r1]);
+    return r1;
+}
+
+int cg_negate(int r1) {
+    fprintf(outfile, "\tnegq\t%s\n", register_list[r1]);
+    return r1;
+}
+
+
 static void free_register(int indx) {
     if (free_registers[indx] != 0) {
         fprintf(stderr, "Error trying to free register %d\n", indx);
@@ -103,29 +114,53 @@ int cgloadint(int value) {
     return r;
 }
 
-int cgloadglob(int id) {
-    int r = allocate_register();
+int cgloadglob(int id, int op) {
+  int r = allocate_register();
 
-    switch (global_symbols[id].type) {
-        case P_CHAR:
-            fprintf(outfile, "\tmovzbq\t%s(\%%rip), %s\n", global_symbols[id].name,
+  // Print out the code to initialise it
+  switch (global_symbols[id].type) {
+    case P_CHAR:
+        if (op == A_PRE_INCREMENT)
+    fprintf(outfile, "\tincb\t%s(\%%rip)\n", global_symbols[id].name);
+        if (op == A_PRE_DECREMENT)
+    fprintf(outfile, "\tdecb\t%s(\%%rip)\n", global_symbols[id].name);
+        fprintf(outfile, "\tmovzbq\t%s(%%rip), %s\n", global_symbols[id].name,
             register_list[r]);
-            break;
-        case P_INT:
-            fprintf(outfile, "\tmovzbl\t%s(\%%rip), %s\n", global_symbols[id].name,
-                register_list[r]);
-            break;
-        case P_LONG:
-        case P_CHARPTR:
-        case P_INTPTR:
-        case P_LONGPTR:
-            fprintf(outfile, "\tmovq\t%s(\%%rip), %s\n", global_symbols[id].name, register_list[r]);
-            break;
-        default:
-            fprintf(stderr, "Bad type in cgloadglob: %d\n", global_symbols[id].type);
-            break;
+        if (op == A_POST_INCREMENT)
+    fprintf(outfile, "\tincb\t%s(\%%rip)\n", global_symbols[id].name);
+        if (op == A_POST_DECREMENT)
+    fprintf(outfile, "\tdecb\t%s(\%%rip)\n", global_symbols[id].name);
+        break;
+    case P_INT:
+        if (op == A_PRE_INCREMENT)
+    fprintf(outfile, "\tincl\t%s(\%%rip)\n", global_symbols[id].name);
+        if (op == A_PRE_DECREMENT)
+    fprintf(outfile, "\tdecl\t%s(\%%rip)\n", global_symbols[id].name);
+        fprintf(outfile, "\tmovslq\t%s(\%%rip), %s\n", global_symbols[id].name,
+            register_list[r]);
+        if (op == A_POST_INCREMENT)
+    fprintf(outfile, "\tincl\t%s(\%%rip)\n", global_symbols[id].name);
+        if (op == A_POST_DECREMENT)
+    fprintf(outfile, "\tdecl\t%s(\%%rip)\n", global_symbols[id].name);
+        break;
+    case P_LONG:
+    case P_CHARPTR:
+    case P_INTPTR:
+    case P_LONGPTR:
+        if (op == A_PRE_INCREMENT)
+    fprintf(outfile, "\tincq\t%s(\%%rip)\n", global_symbols[id].name);
+        if (op == A_PRE_DECREMENT)
+    fprintf(outfile, "\tdecq\t%s(\%%rip)\n", global_symbols[id].name);
+        fprintf(outfile, "\tmovq\t%s(\%%rip), %s\n", global_symbols[id].name, register_list[r]);
+        if (op == A_POST_INCREMENT)
+    fprintf(outfile, "\tincq\t%s(\%%rip)\n", global_symbols[id].name);
+        if (op == A_POST_DECREMENT)
+    fprintf(outfile, "\tdecq\t%s(\%%rip)\n", global_symbols[id].name);
+        break;
+    default:
+        fprintf(stderr, "Bad type in cgloadglob: %d", global_symbols[id].type);
+        exit(1);
     }
-
     return r;
 }
 
@@ -214,6 +249,12 @@ void cgglobsym(int id) {
     }
 }
 
+
+int cgxor(int r1, int r2) {
+    fprintf(outfile, "\txorq\t%s, %s\n", register_list[r1], register_list[r2]);
+    return r2; // Return register with result
+}
+
 void cgglobstr(int label, char* text) {
     cglabel(label);
 
@@ -281,6 +322,13 @@ int cg_and(int r1, int r2) {
     fprintf(outfile, "\tandq\t\t%s, %s\n", register_list[r1], register_list[r2]);
     free_register(r1);
     return r2;
+}
+
+int cg_logic_not(int r1) {
+    fprintf(outfile, "\ttestq\t%s, %s\n", register_list[r1], register_list[r1]);
+    fprintf(outfile, "\tsete\t%s\n", byte_register_list[r1]);
+    fprintf(outfile, "\tmovzbq\t%s, %s\n", byte_register_list[r1], register_list[r1]);
+    return r1;
 }
 
 int cgdiv(int r1, int r2) {

@@ -23,6 +23,9 @@ static t_astnode* function_declaration(int type);
 // Prefix operation ('*', '&')
 static t_astnode* prefix(void);
 
+// Postfix operation ('++')
+static t_astnode* postfix(void);
+
 // Statements
 static t_astnode* print_statement(void);
 static void var_declaration(int type);
@@ -49,8 +52,14 @@ static t_astnode* factor_expression(void);
 
 static t_astnode* primary(void);
 
+// '|'
 static t_astnode* or_expression(void);
+
+// '&'
 static t_astnode* and_expression(void);
+
+// '^'
+static t_astnode* xor_expression(void);
 
 // Types
 static int parse_type(int t);
@@ -153,6 +162,8 @@ int arithop(int tok) {
         // '&' operator
         case T_AMPER:
             return A_AND;
+        case T_XOR:
+            return A_XOR;
     default:
         fprintf(stderr, "Unknown token on line %d\n", line);
         exit(1);
@@ -196,7 +207,7 @@ void global_declarations(void) {
         if (token.token == T_LEFT_PAREN) {
             tree = function_declaration(type);
             generate_ast(tree, NOREG, 0);
-            // print_ast(tree, 0);
+            print_ast(tree, 0);
         } else {
             var_declaration(type);
         }
@@ -270,28 +281,7 @@ static t_astnode* primary(void) {
             match(T_RIGHT_PAREN, "Expected ')'");
             return n;
         case T_IDENTIFIER:
-
-            // Distinguish between function call and variable
-            // So look at next token
-            scan(&token);
-
-            if (token.token == T_LEFT_PAREN) {
-                return function_calls();
-            }
-
-            if (token.token == T_LEFT_BRACKET) {
-                return array_access();
-            }
-
-            reject_token(&token);
-
-            id = find_global(text);
-
-            if (id == -1) {
-                fprintf(stderr, "Unknown variable %s.\n", text);
-            }
-            n = make_ast_leaf(A_IDENTIFIER, global_symbols[id].type, id);
-            break;
+            return postfix();
         default:
             fprintf(stderr, "Syntax error on line %d\n", line);
             exit(1);
@@ -372,7 +362,7 @@ t_astnode* factor_expression(void) {
 
     type = token.token;
 
-    if (type == T_EOF) {
+    if (type == T_SEMICOLON) {
         left->rvalue = 1;
         return left;
     }
@@ -395,10 +385,78 @@ t_astnode* factor_expression(void) {
     return left;
 }
 
+static t_astnode* postfix(void) {
+    // Distinguish between function call and variable
+    // So look at next token
+    t_astnode* node;
+    int id;
+
+    scan(&token);
+
+    if (token.token == T_LEFT_PAREN) {
+        return function_calls();
+    }
+
+    if (token.token == T_LEFT_BRACKET) {
+        return array_access();
+    }
+
+    id = find_global(text);
+
+    if (id == -1 || global_symbols[id].stype != S_VARIABLE) {
+        fprintf(stderr, "Unknown variable %s.\n", text);
+    }
+    
+    switch (token.token) {
+        case T_INCREMENT:
+            scan(&token);
+            node = make_ast_leaf(A_POST_INCREMENT, global_symbols[id].type, id);
+            break;
+        case T_DECREMENT:
+            scan(&token);
+            node = make_ast_leaf(A_POST_DECREMENT, global_symbols[id].type, id);
+            break;
+        default:
+            node = make_ast_leaf(A_IDENTIFIER, global_symbols[id].type, id);
+            break;
+    }
+
+    return node;
+}
+
 static t_astnode* prefix(void) {
     t_astnode* tree;
 
     switch (token.token) {
+        case T_INCREMENT:
+            scan(&token);
+            tree = prefix();
+
+            if (tree->op != A_IDENTIFIER) {
+                fprintf(stderr, "'++' stands before an identifier.\n");
+                exit(1);
+            }
+
+            tree = make_ast_unary(A_PRE_INCREMENT, tree->type, tree, 0);
+            break;
+        case T_DECREMENT:
+            scan(&token);
+            tree = prefix();
+
+            if (tree->op != A_IDENTIFIER) {
+                fprintf(stderr, "'++' stands before an identifier.\n");
+                exit(1);
+            }
+
+            tree = make_ast_unary(A_PRE_DECREMENT, tree->type, tree, 0);
+            break;
+        case T_MINUS:
+            scan(&token);
+            tree = prefix();
+            tree->rvalue = 1;
+            tree = modify_type(tree, P_INT, 0);
+            tree = make_ast_unary(A_NEGATE, tree->type, tree, 0);
+            break;
         case T_AMPER:
             scan(&token);
             tree = prefix();
@@ -419,6 +477,19 @@ static t_astnode* prefix(void) {
             }
 
             tree = make_ast_unary(A_DEREFERENCE, value_at(tree->type), tree, 0);
+            break;
+        case T_LOGIC_NOT:
+            scan(&token);
+            tree = prefix();
+            tree->rvalue = 1;
+            tree = make_ast_unary(A_LOGIC_NOT, tree->type, tree, 0);
+            break;
+        case T_INVERT:
+            scan(&token);
+            tree = prefix();
+            tree->rvalue = 1;
+            tree = modify_type(tree, P_INT, 0);
+            tree = make_ast_unary(A_INVERT, tree->type, tree, 0);
             break;
         default:
             tree = primary();
@@ -561,6 +632,37 @@ static t_astnode* comparison_expression(void) {
     return left;
 }
 
+
+static t_astnode* xor_expression(void) {
+    t_astnode* left, *right;
+    int type;
+
+    left = and_expression();
+    type = token.token;
+
+    if (type == T_SEMICOLON) {
+        left->rvalue = 1;
+        return left;
+    }
+
+    while (token.token == T_XOR) {
+        scan(&token);
+
+        right = and_expression();
+        left->rvalue = right->rvalue = 1;
+        convert_types(&left, &right, type);
+
+        left = make_astnode(arithop(type), left->type, left, right, 0);
+        type = token.token;
+        if (type == T_SEMICOLON) {
+            return left;
+        }
+
+    }
+
+    return left;
+}
+
 static t_astnode* and_expression(void) {
     t_astnode* left, *right;
     int type;
@@ -596,7 +698,7 @@ static t_astnode* or_expression(void) {
     t_astnode* left, *right;
     int type;
 
-    left = and_expression();
+    left = xor_expression();
     type = token.token;
 
     if (type == T_SEMICOLON) {
@@ -607,7 +709,7 @@ static t_astnode* or_expression(void) {
     while (token.token == T_OR) {
         scan(&token);
 
-        right = and_expression();
+        right = xor_expression();
         left->rvalue = right->rvalue = 1;
         convert_types(&left, &right, type);
 
@@ -1019,6 +1121,7 @@ static void print_ast(t_astnode* root, int depth) {
         case A_RETURN: printf("%s%s\n", prefBuff, ast_name); break;
         case A_DEREFERENCE: printf("%s%s %s\n", prefBuff, ast_name, root->rvalue != 0 ? "rvalue" : ""); break;
         case A_FUNCTION_CALL: printf("%s%s %s\n", prefBuff, ast_name, root->rvalue != 0 ? "rvalue" : ""); break;
+        case A_POST_DECREMENT: printf("%s%s \n", prefBuff, "POST_DECREMENT");
     }
 
     if (root->left != NULL) {

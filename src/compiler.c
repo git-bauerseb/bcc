@@ -31,6 +31,7 @@ char* token_names[] = {
     "T_LEFT_PAREN",
     "T_RIGHT_PAREN",
 
+
     "T_IF",
     "T_WHILE",
     "T_ELSE",
@@ -106,6 +107,7 @@ int main(int argc, char** argv) {
     infile = fopen(argv[1], "r");
     outfile = fopen(argv[2], "w");
 
+    
     add_global("printint", P_CHAR, S_FUNCTION, 0, 0);
     add_global("printchar", P_VOID, S_FUNCTION, 0, 0);
 
@@ -116,6 +118,7 @@ int main(int argc, char** argv) {
 
     fclose(outfile);
     exit(0);
+    
     
     
     return 0;

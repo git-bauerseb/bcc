@@ -315,6 +315,7 @@ static int scanch(void) {
             case 'n': return '\n';
             case '\\': return '\\';
             case '\'': return '\'';
+            case '0' : return '\0';
             default:
                 fprintf(stderr, "Unknown escape sequence for %c.\n", c);
                 exit(1);

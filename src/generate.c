@@ -53,9 +53,10 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
         case A_RSHIFT: return cgshift_r(leftreg, rightreg);
         case A_OR: return cg_or(leftreg, rightreg);
         case A_AND: return cg_and(leftreg, rightreg);
+        case A_LOGIC_NOT: return cg_logic_not(leftreg);
         case A_IDENTIFIER:
             if (n->rvalue || parentASTop== A_DEREFERENCE) {
-                return (cgloadglob(n->v.id));
+                return (cgloadglob(n->v.id, n->op));
             } else {
                 return NOREG;
             }
@@ -98,6 +99,16 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
             } else {
                 return leftreg;
             }
+        case A_INVERT: return cg_invert(leftreg);
+        case A_NEGATE: return cg_negate(leftreg);
+        case A_PRE_INCREMENT:
+                return cgloadglob(n->left->v.id, n->op);
+        case A_PRE_DECREMENT:
+                return cgloadglob(n->left->v.id, n->op);
+        case A_POST_INCREMENT:
+                return cgloadglob(n->v.id, n->op);
+        case A_POST_DECREMENT:
+                return cgloadglob(n->v.id, n->op);
         case A_SCALE:
             switch (n->v.size) {
                 case 2: return cgshlconst(leftreg, 1);
@@ -109,6 +120,8 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
             }
         case A_STRLIT:
             return cgloadglobstr(n->v.id);
+        case A_XOR:
+            return cgxor(leftreg, rightreg);
         default:
             fprintf(stderr, "Unknown AST operator %d\n", n->op);
             exit(1);

@@ -1,17 +1,21 @@
 	.data
 	.globl	a
 a:	.long	0
+	.data
+	.globl	b
+b:	.long	0
 	.text
 	.globl	main
 	.type	main, @function
 main:
 	pushq	%rbp
 	movq	%rsp, %rbp
-	movq	$2, %r8
-	movq	$1, %r9
-	andq		%r8, %r9
-	movl	%r9d, a(%rip)
-	movzbl	a(%rip), %r8
+	movq	$42, %r8
+	movl	%r8d, a(%rip)
+	movslq	a(%rip), %r8
+	decl	a(%rip)
+	movl	%r8d, b(%rip)
+	movslq	a(%rip), %r8
 	movq	%r8, %rdi
 	call	printint
 	movq	%rax, %r9

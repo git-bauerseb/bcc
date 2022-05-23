@@ -38,7 +38,17 @@ enum {
     A_LSHIFT,
     A_RSHIFT,
     A_OR,                   // '|' operator
-    A_AND                   // '&' operator
+    A_AND,                  // '&' operator
+    A_LOGIC_NOT,            // '!' operator
+
+    A_POST_DECREMENT,       // <id>--
+    A_POST_INCREMENT,       // <id>++
+    A_NEGATE,               // Invert value
+    A_PRE_INCREMENT,        // ++<id>
+    A_PRE_DECREMENT,        // --<id>
+
+    A_INVERT,
+    A_XOR
 };
 
 /*
