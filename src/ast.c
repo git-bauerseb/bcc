@@ -19,6 +19,7 @@ static char* ast_names[] = {
 static t_astnode* function_calls(void);
 static t_astnode* function_declaration(int type);
 
+static t_astnode* parameter_declaration(void);
 
 // Prefix operation ('*', '&')
 static t_astnode* prefix(void);
@@ -28,7 +29,7 @@ static t_astnode* postfix(void);
 
 // Statements
 static t_astnode* print_statement(void);
-static void var_declaration(int type);
+static void var_declaration(int type, int islocal, int isparam);
 static t_astnode* assignment_statement(void);
 static t_astnode* while_statement(void);
 static t_astnode* single_statement(void);
@@ -62,7 +63,7 @@ static t_astnode* and_expression(void);
 static t_astnode* xor_expression(void);
 
 // Types
-static int parse_type(int t);
+static int parse_type(void);
 static int get_primitive_size(int type);
 
 // Helper Functions
@@ -170,7 +171,7 @@ int arithop(int tok) {
     }
 }
 
-static int parse_type(int t) {
+static int parse_type(void) {
     int type;
 
     switch(token.token) {
@@ -196,12 +197,38 @@ static int get_primitive_size(int type) {
 }
 
 
+static t_astnode* parameter_declaration(void) {
+    int type;
+    int num_params = 0;
+
+    while (token.token != T_RIGHT_PAREN) {
+        type = parse_type();
+        match(T_IDENTIFIER, "Expected identifier");
+
+        var_declaration(type, 1, 1);
+        num_params++;
+
+        switch (token.token) {
+            case T_COMMA:
+                scan(&token);
+                break;
+            case T_RIGHT_PAREN:
+                break;    
+            default:
+                report_error("Unexpected token in paramter list");
+        }
+    }
+
+    return num_params;
+}
+
+
 void global_declarations(void) {
     t_astnode* tree;
     int type;
 
     while (1) {
-        type = parse_type(token.token);
+        type = parse_type();
         match(T_IDENTIFIER, "identifier");
 
         if (token.token == T_LEFT_PAREN) {
@@ -209,7 +236,7 @@ void global_declarations(void) {
             generate_ast(tree, NOREG, 0);
             print_ast(tree, 0);
         } else {
-            var_declaration(type);
+            var_declaration(type, 0, 0);       // Parse global declarations
         }
 
         if (token.token == T_EOF) {
@@ -223,7 +250,7 @@ static t_astnode* array_access(void) {
     t_astnode* left, *right;
     int id;
 
-    if ((id = find_global(text)) == -1 || global_symbols[id].stype != S_ARRAY) {
+    if ((id = find_symbol(text)) == -1 || sym_table[id].stype != S_ARRAY) {
         fprintf(stderr, "Undeclared array %s.\n", text);
         exit(1);
     }
@@ -233,7 +260,7 @@ static t_astnode* array_access(void) {
 
         arr[5] --> *(arr + 5)
     */
-    left = make_ast_leaf(A_ADDR, global_symbols[id].type, id);
+    left = make_ast_leaf(A_ADDR, sym_table[id].type, id);
 
     // '['
     match(T_LEFT_BRACKET, "Expected '[' for array access.");
@@ -251,7 +278,7 @@ static t_astnode* array_access(void) {
     // Scale index by size of element type
     right = modify_type(right, left->type, A_ADD);
 
-    left = make_astnode(A_ADD, global_symbols[id].type, left, right, 0);
+    left = make_astnode(A_ADD, sym_table[id].type, left, right, 0);
     left = make_ast_unary(A_DEREFERENCE, value_at(left->type), left, 0);
     return left;
 }
@@ -401,23 +428,23 @@ static t_astnode* postfix(void) {
         return array_access();
     }
 
-    id = find_global(text);
+    id = find_symbol(text);
 
-    if (id == -1 || global_symbols[id].stype != S_VARIABLE) {
+    if (id == -1 || sym_table[id].stype != S_VARIABLE) {
         fprintf(stderr, "Unknown variable %s.\n", text);
     }
     
     switch (token.token) {
         case T_INCREMENT:
             scan(&token);
-            node = make_ast_leaf(A_POST_INCREMENT, global_symbols[id].type, id);
+            node = make_ast_leaf(A_POST_INCREMENT, sym_table[id].type, id);
             break;
         case T_DECREMENT:
             scan(&token);
-            node = make_ast_leaf(A_POST_DECREMENT, global_symbols[id].type, id);
+            node = make_ast_leaf(A_POST_DECREMENT, sym_table[id].type, id);
             break;
         default:
-            node = make_ast_leaf(A_IDENTIFIER, global_symbols[id].type, id);
+            node = make_ast_leaf(A_IDENTIFIER, sym_table[id].type, id);
             break;
     }
 
@@ -503,7 +530,7 @@ static t_astnode* function_calls(void) {
     int id;
 
     // Check if function name exists
-    if ((id = find_global(text)) == -1) {
+    if ((id = find_symbol(text)) == -1) {
         fprintf(stderr, "Undeclared function %s.\n", text);
     }
 
@@ -511,7 +538,7 @@ static t_astnode* function_calls(void) {
 
     tree = binary_expression();
     tree->rvalue = 1;
-    tree = make_ast_unary(A_FUNCTION_CALL, global_symbols[id].type, tree, id);
+    tree = make_ast_unary(A_FUNCTION_CALL, sym_table[id].type, tree, id);
     match(T_RIGHT_PAREN, ")");
 
     return tree;
@@ -770,7 +797,7 @@ void match(int t, char* to_match) {
 
 
 
-static void var_declaration(int type) {
+static void var_declaration(int type, int islocal, int isparam) {
     int id;
 
     // Text now has the identifier's name.
@@ -780,18 +807,24 @@ static void var_declaration(int type) {
     scan(&token);
 
     if (token.token == T_INTLIT) {
-        id = add_global(text, pointer_to(type), S_ARRAY, 0, token.value);
-        generate_global_symbol(id);
+        if (islocal) {
+            id = add_local(text, pointer_to(type), S_ARRAY, 0, token.value, isparam);
+        } else {
+            id = add_global(text, pointer_to(type), S_ARRAY, 0, token.value);
+        }
     }
 
     // Ensure we have a following ']'
     scan(&token);
     match(T_RIGHT_BRACKET, "]");
     } else {
-    // Add this as a known scalar
-    // and generate its space in assembly
-    id = add_global(text, type, S_VARIABLE, 0, 1);
-    generate_global_symbol(id);
+        // Add this as a known scalar
+        // and generate its space in assembly
+        if (islocal) {
+            id = add_local(text, type, S_VARIABLE, 0, 1, isparam);
+        } else {
+            id = add_global(text, type, S_VARIABLE, 0, 1);
+    }
     }
 
     // Get the trailing semicolon
@@ -839,7 +872,7 @@ static t_astnode* assignment_statement(void) {
         return function_calls();
     }
 
-    if ((id = find_global(text)) == -1) {
+    if ((id = find_symbol(text)) == -1) {
         fprintf(stderr, "Undeclared variable %s\n", text);
         exit(1);
     }
@@ -850,7 +883,7 @@ static t_astnode* assignment_statement(void) {
     // Not reject token because either '(' or '=' are coming
     // after identifier
 
-    right = make_ast_leaf(A_LVIDENT, global_symbols[id].type, id);
+    right = make_ast_leaf(A_LVIDENT, sym_table[id].type, id);
     match(T_ASSIGNMENT, "=");
 
     left = binary_expression();
@@ -943,9 +976,9 @@ static t_astnode* single_statement() {
             return print_statement(); 
         case T_INT:
         case T_CHAR:
-            type = parse_type(token.token);
+            type = parse_type();
             match(T_IDENTIFIER, "identifier");
-            var_declaration(type);
+            var_declaration(type, 1, 0);           // Parse local variables
             return NULL;
         case T_IF:
             return if_statement();
@@ -965,13 +998,13 @@ static t_astnode* return_statement(void) {
     t_astnode* tree;
     int returntype, function_type;
 
-    if (global_symbols[current_function_id].type == P_VOID) {
+    if (sym_table[current_function_id].type == P_VOID) {
         fprintf(stderr, "Cannot return from a void function");
     }
 
     match(T_RETURN, "return");
     tree = binary_expression();
-    tree = modify_type(tree, global_symbols[current_function_id].type, 0);
+    tree = modify_type(tree, sym_table[current_function_id].type, 0);
 
     if (tree == NULL) {
         fprintf(stderr, "Incompatible type to return.\n");
@@ -992,6 +1025,8 @@ static t_astnode* function_declaration(int type) {
     nameslot = add_global(text, type, S_FUNCTION, endlabel, 0);
     current_function_id = nameslot;
 
+    generate_reset_locals();
+
     match(T_LEFT_PAREN, "(");
     match(T_RIGHT_PAREN, ")");
 
@@ -1008,6 +1043,7 @@ static t_astnode* function_declaration(int type) {
 
     return make_ast_unary(A_FUNCTION, P_NONE, tree, nameslot);
 }
+
 
 static t_astnode* compound_statement() {
 
@@ -1114,7 +1150,7 @@ static void print_ast(t_astnode* root, int depth) {
 
     switch (root->op) {
         case A_ASSIGN: printf("%s%s\n", prefBuff, ast_name); break;
-        case A_IDENTIFIER: printf("%s%s(%s) %s\n", prefBuff, ast_name, global_symbols[root->v.id].name, root->rvalue != 0 ? "rvalue" : ""); break;
+        case A_IDENTIFIER: printf("%s%s(%s) %s\n", prefBuff, ast_name, sym_table[root->v.id].name, root->rvalue != 0 ? "rvalue" : ""); break;
         case A_INTLIT: printf("%s%s(%d) %s\n", prefBuff, ast_name, root->v.value, root->rvalue != 0 ? "rvalue" : ""); break;
         case A_FUNCTION: printf("%s%s\n", prefBuff, ast_name); break;
         case A_GLUE: printf("%s%s\n", prefBuff, ast_name); break;

@@ -55,4 +55,6 @@ extern int label(void);
 
 extern t_token token;
 extern int current_function_id;
+
+extern void generate_reset_locals();
 #endif

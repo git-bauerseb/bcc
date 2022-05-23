@@ -61,7 +61,7 @@ char* token_names[] = {
     "T_EOF"
 };
 
-t_symbol_entry* global_symbols;
+t_symbol_entry* sym_table;
 
 FILE* infile;
 
@@ -76,6 +76,9 @@ int line;
 
 int current_function_id;
 
+int global_next_pos = 0;
+int local_next_pos = NUM_SYMBOLS - 1;
+
 t_token token;
 
 static void init() {
@@ -83,7 +86,7 @@ static void init() {
     line = 0;
     free_all_registers();
 
-    global_symbols = (t_symbol_entry*)calloc(sizeof(t_symbol_entry), NUM_SYMBOLS);
+    sym_table = (t_symbol_entry*)calloc(sizeof(t_symbol_entry), NUM_SYMBOLS);
 }
 
 static void scanner_test() {

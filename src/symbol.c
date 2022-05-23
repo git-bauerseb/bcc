@@ -1,7 +1,5 @@
 #include "../include/symbol.h"
 
-static int new_global(void);
-
 /*
     Update a symbol at the given index. The parameters are:
 
@@ -28,20 +26,9 @@ static int new_global(void) {
     return p;
 }
 
-int find_global(char* s) {
-    int i = 0;
-
-    for (; i < NUM_SYMBOLS; i++) {
-        if (sym_table[i].name != NULL && !strcmp(s, sym_table[i].name)) {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-int add_local(void) {
+static int new_local(void) {
     int p;
+
     if ((p = local_next_pos--) <= global_next_pos) {
         fprintf(stderr, "Too many local symbols\n");
         exit(1);
@@ -50,16 +37,30 @@ int add_local(void) {
     return p;
 }
 
-int add_global(char* name, int type, int stype, int endlabel, int size, int class, int posn) {
-    int y;
+static int find_global(char* s) {
+    int i = 0;
 
-    if ((y = find_global(name)) != -1) {
-        return y;
+    for (; i < global_next_pos; i++) {
+
+        // Globals also can contain paramters
+        if (sym_table[i].class == C_PARAMETER) {continue;}
+
+        if (sym_table[i].name != NULL && !strcmp(s, sym_table[i].name)) {
+            return i;
+        }
     }
 
-    y = new_global();
-    update_symbol(y, name, type, stype, class, endlabel, size, posn);
-    return y;
+    return -1;
+}
+
+static int find_local(char* s) {
+    int i;
+
+    for (i = local_next_pos + 1; i < NUM_SYMBOLS; i++) {
+        if (*s == *sym_table[i].name && !strcmp(s, sym_table[i].name))
+            return i;
+    }
+    return -1;
 }
 
 static void update_symbol(int slot, char* name, int type, int stype,
@@ -70,10 +71,53 @@ static void update_symbol(int slot, char* name, int type, int stype,
     }
 
     sym_table[slot].class = class;
-    sym_table[slot].name = name;
+    sym_table[slot].name = strdup(name);        // Duplicate, otherwise it's a reference!
     sym_table[slot].type = type;
     sym_table[slot].stype = stype;
     sym_table[slot].size = size;
     sym_table[slot].posn = posn;
     sym_table[slot].endlabel = end_label;
+}
+
+int find_symbol(char* name) {
+    int slot;
+
+    if ((slot = find_global(name)) == -1) {
+        slot = find_local(name);
+    }
+
+    return slot;
+}
+
+int add_local(char* name, int type, int stype, int endlabel, int size, int isparam) {
+    int localslot, globalslot, posn;
+
+    if ((localslot = find_local(name)) != -1) {
+        return -1;
+    }
+
+    localslot = new_local();
+    posn = cg_get_local_offset(type, 0);
+    if (isparam) {
+        update_symbol(localslot, name, type, stype, C_PARAMETER, 0, size, 0);
+        globalslot = new_global();
+        update_symbol(globalslot, name, type, stype, C_PARAMETER, 0, size, 0);
+    } else {
+        update_symbol(localslot, name, type, stype, C_LOCAL, 0, size, 0);
+    }
+
+    return localslot;
+}
+
+int add_global(char* name, int type, int stype, int endlabel, int size) {
+    int slot;
+
+    if ((slot = find_global(name)) != -1) {
+        return slot;
+    }
+
+    slot = new_global();
+    update_symbol(slot, name, type, stype, C_GLOBAL, endlabel, size, 0);
+    generate_global_symbol(slot);
+    return slot;
 }

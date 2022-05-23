@@ -7,6 +7,9 @@
 #include "definitions.h"
 #include "symbol.h"
 
+#define NUM_FREE_REGISTERS 4        // Registers that can be used freely by the program
+#define FIRST_PARAMETER_REGISTER 9  // Register that is the first one used for parameters (according to calling convention)
+
 void cglabel(int l);
 void cgjump(int l);
 
@@ -26,9 +29,21 @@ int cgloadint(int value);
 int cgloadglob(int id, int op);
 
 /*
+    Load value of global variable into a register. The loading depends
+    on the operation.
+*/
+int cgloadlocal(int id, int op);
+
+/*
     Store register value into a variable.
 */
 int cgstoreglob(int r, int id);
+
+
+/*
+    Store register value into a variable.
+*/
+int cgstorelocal(int r, int id);
 
 int cgwiden(int r, int oldtype, int newtype);
 
@@ -107,6 +122,9 @@ int cg_logic_not(int r1);
 
 int cg_invert(int r1);
 int cgxor(int r1, int r2);
+
+void cg_reset_locals(void);
+int cg_get_local_offset(int type, int isparam);
 
 extern FILE* outfile;
 

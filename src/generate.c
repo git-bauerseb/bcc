@@ -55,15 +55,19 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
         case A_AND: return cg_and(leftreg, rightreg);
         case A_LOGIC_NOT: return cg_logic_not(leftreg);
         case A_IDENTIFIER:
-            if (n->rvalue || parentASTop== A_DEREFERENCE) {
-                return (cgloadglob(n->v.id, n->op));
+            if (sym_table[n->v.id].class == C_LOCAL) {
+                return cgloadlocal(n->v.id, n->op);
             } else {
-                return NOREG;
+                return cgloadglob(n->v.id, n->op);
             }
-        case A_LVIDENT: return cgstoreglob(reg, n->v.id);
         case A_ASSIGN: 
             switch (n->right->op) {
-                case A_IDENTIFIER: return (cgstoreglob(leftreg, n->right->v.id));
+                case A_IDENTIFIER: 
+                    if (sym_table[n->right->v.id].class == C_LOCAL) {
+                        return cgstorelocal(leftreg, n->right->v.id);
+                    } else {
+                        return cgstoreglob(leftreg, n->right->v.id);
+                    }
                 case A_DEREFERENCE: return (cgstorderef(leftreg, rightreg, n->right->type));
                 default: fprintf(stderr, "Cant assign in generate_ast(), op: %d\n", n->op);
             }
@@ -197,4 +201,8 @@ static int generate_while_AST(t_astnode* n) {
     cglabel(lend);
 
     return NOREG;
+}
+
+void generate_reset_locals(void) {
+    cg_reset_locals();
 }
