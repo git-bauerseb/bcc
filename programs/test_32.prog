@@ -1,0 +1,11 @@
+int fred(int a, int b, int c, int d, int e, int f, int g) {
+    return a + b + c + d + e + f + g;
+}
+
+int main() {
+    int x;
+    x = fred(1, 2, 3, 4, 5, 6, 7);
+    printint(x);
+
+    return 0;
+}

@@ -6,6 +6,8 @@
 static int generate_if_AST(t_astnode* n);
 static int generate_while_AST(t_astnode* n);
 
+static int generate_function_call(t_astnode* n);
+
 
 /*
     Given AST, the register (if available) that holds
@@ -15,6 +17,11 @@ static int generate_while_AST(t_astnode* n);
     Return register index with the tree's final value.
 */
 int generate_ast(t_astnode* n, int reg, int parentASTop) {
+
+    if (n == NULL) {
+        return NOREG;
+    }
+
     int leftreg, rightreg;
 
     switch (n->op) {
@@ -33,6 +40,8 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
             generate_ast(n->left, NOLABEL, n->op);
             cgfunctionpostamble(n->v.id);
             return NOREG;
+        case A_FUNCTION_CALL:
+            return generate_function_call(n);
     }
 
     if (n->left) {
@@ -55,7 +64,7 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
         case A_AND: return cg_and(leftreg, rightreg);
         case A_LOGIC_NOT: return cg_logic_not(leftreg);
         case A_IDENTIFIER:
-            if (sym_table[n->v.id].class == C_LOCAL) {
+            if (sym_table[n->v.id].class == C_LOCAL || sym_table[n->v.id].class == C_PARAMETER) {
                 return cgloadlocal(n->v.id, n->op);
             } else {
                 return cgloadglob(n->v.id, n->op);
@@ -93,7 +102,7 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
             cgreturn(leftreg, current_function_id);
             return NOREG;
         case A_FUNCTION_CALL:
-            return cgcall(leftreg, n->v.id);
+            return generate_function_call(n);
         case A_ADDR:
             return cgaddress(n->v.id);
         case A_DEREFERENCE:
@@ -132,6 +141,27 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
     }
 
     return NOREG;
+}
+
+static int generate_function_call(t_astnode* n) {
+    t_astnode* gluetree = n->left;
+    int reg;
+    int args = 0;
+
+    while (gluetree) {
+        reg = generate_ast(gluetree->right, NOLABEL, gluetree->op);
+
+        // Copy into nth function parameter
+        cg_copy_argument(reg, gluetree->v.size);
+
+        // Keep number of arguments
+        args = (args == 0) ? gluetree->v.size : args;
+
+        generate_free_registers();
+        gluetree = gluetree->left;
+    }
+
+    return cgcall(n->v.id, args);
 }
 
 void generate_global_symbol(int id) {

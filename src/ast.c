@@ -10,7 +10,11 @@ static char* ast_names[] = {
     "A_INTLIT", "A_IDENTIFIER", "A_LVIDENT",
     "A_ASSIGN", "A_PRINT", "A_GLUE", "A_IF", "A_WHILE",
     "A_FOR", "A_FUNCTION", "A_WIDEN", "A_SCALE", "A_FUNCTION_CALL",
-    "A_RETURN", "A_ADDR", "A_DEREFERENCE"
+    "A_RETURN", "A_ADDR", "A_DEREFERENCE", "A_STRLIT", "A_LSHIFT",
+    "A_RSHIFT", "A_OR", "A_AND", "A_LOGIC_NOT",
+    "A_POST_DECREMENT", "A_POST_INCREMENT", "A_NEGATE",
+    "A_PRE_INCREMENT", "A_PRE_DECREMENT",
+    "A_INVERT", "A_XOR"
 };
 
 // Parsing functions
@@ -19,7 +23,7 @@ static char* ast_names[] = {
 static t_astnode* function_calls(void);
 static t_astnode* function_declaration(int type);
 
-static t_astnode* parameter_declaration(void);
+static int parameter_declaration(void);
 
 // Prefix operation ('*', '&')
 static t_astnode* prefix(void);
@@ -42,6 +46,8 @@ static t_astnode* return_statement(void);
 /*
     <<, >> operators
 */
+static t_astnode* expression_list(void);
+
 static t_astnode* shift_expression(void);
 
 static t_astnode* array_access(void);
@@ -197,7 +203,7 @@ static int get_primitive_size(int type) {
 }
 
 
-static t_astnode* parameter_declaration(void) {
+static int parameter_declaration(void) {
     int type;
     int num_params = 0;
 
@@ -243,6 +249,34 @@ void global_declarations(void) {
             break;
         }
     }
+}
+
+
+static t_astnode* expression_list(void) {
+    t_astnode* tree, *child;
+    tree = NULL;
+    child = NULL;
+
+    int expr_count = 0;
+
+    while (token.token != T_RIGHT_PAREN) {
+        child = binary_expression();
+        expr_count++;
+
+        tree = make_ternary_astnode(A_GLUE, P_NONE, tree, NULL, child, expr_count);
+
+        switch (token.token) {
+            case T_COMMA:
+                scan(&token);
+                break;
+            case T_RIGHT_PAREN:
+                break;
+            default:
+                report_error("Unexpected token in expression list");
+        }
+    }
+
+    return tree;
 }
 
 
@@ -536,8 +570,7 @@ static t_astnode* function_calls(void) {
 
     match(T_LEFT_PAREN, "(");
 
-    tree = binary_expression();
-    tree->rvalue = 1;
+    tree = expression_list();
     tree = make_ast_unary(A_FUNCTION_CALL, sym_table[id].type, tree, id);
     match(T_RIGHT_PAREN, ")");
 
@@ -826,9 +859,6 @@ static void var_declaration(int type, int islocal, int isparam) {
             id = add_global(text, type, S_VARIABLE, 0, 1);
     }
     }
-
-    // Get the trailing semicolon
-    match(T_SEMICOLON, ";");
 }
 
 // ***********************************************************************
@@ -979,6 +1009,7 @@ static t_astnode* single_statement() {
             type = parse_type();
             match(T_IDENTIFIER, "identifier");
             var_declaration(type, 1, 0);           // Parse local variables
+            match(T_SEMICOLON, ";");
             return NULL;
         case T_IF:
             return if_statement();
@@ -1019,15 +1050,15 @@ static t_astnode* return_statement(void) {
 static t_astnode* function_declaration(int type) {
     t_astnode* tree, *finalstmt;
     int nameslot;
+    int paramcnt;
 
     int endlabel = label();
 
     nameslot = add_global(text, type, S_FUNCTION, endlabel, 0);
     current_function_id = nameslot;
 
-    generate_reset_locals();
-
     match(T_LEFT_PAREN, "(");
+    paramcnt = parameter_declaration();
     match(T_RIGHT_PAREN, ")");
 
     tree = compound_statement();

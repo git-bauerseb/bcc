@@ -126,6 +126,8 @@ int cgxor(int r1, int r2);
 void cg_reset_locals(void);
 int cg_get_local_offset(int type, int isparam);
 
+void cg_copy_argument(int r, int arg_position);
+
 extern FILE* outfile;
 
 

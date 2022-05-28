@@ -60,6 +60,10 @@ static int allocate_register(void) {
     exit(1);
 }
 
+static int new_local_offset(int type) {
+    local_offset += ((cgprimsize(type) > 4) ? cgprimsize(type) : 4);
+    return -local_offset;
+}
 
 static int cgcompare(int r1, int r2, char* how) {
     fprintf(outfile, "\tcmpq\t%s, %s\n", register_list[r2], register_list[r1]);
@@ -263,14 +267,20 @@ void cgreturn(int reg, int id) {
     cgjump(sym_table[id].endlabel);
 }
 
-int cgcall(int r, int id) {
-  // Get a new register
-  int outr = allocate_register();
-  fprintf(outfile, "\tmovq\t%s, %%rdi\n", register_list[r]);
-  fprintf(outfile, "\tcall\t%s\n", sym_table[id].name);
-  fprintf(outfile, "\tmovq\t%%rax, %s\n", register_list[outr]);
-  free_register(r);
-  return (outr);
+int cgcall(int id, int numargs) {
+    // Get a new register
+    int outr = allocate_register();
+
+    fprintf(outfile, "\tcall\t%s\n", sym_table[id].name);
+
+    if (numargs > 6) {
+        // Remove arguments pushed on stack
+        fprintf(outfile, "\taddq\t$%d, %%rsp\n", 8*(numargs-6));
+    } else {
+        fprintf(outfile, "\tmovq\t%%rax, %s\n", register_list[outr]);
+    }
+
+    return outr;
 }
 
 void cgglobsym(int id) {
@@ -428,15 +438,49 @@ void cgpostamble() {
   outfile);
 }
 
+
 void cgfunctionpreamble(int id) {
     char* name = sym_table[id].name;
+
+    int param_offset = 16;
+    int param_register = FIRST_PARAMETER_REGISTER;
+
+    local_offset = 0;
+
     fprintf(outfile,
         "\t.text\n"
         "\t.globl\t%s\n"
         "\t.type\t%s, @function\n"
         "%s:\n" "\tpushq\t%%rbp\n"
-        "\tmovq\t%%rsp, %%rbp\n"
-        "\taddq\t$%d, %%rsp\n", name, name, name, -stack_offset);
+        "\tmovq\t%%rsp, %%rbp\n", name, name, name);
+
+    // Copy in-register parameters onto stack
+    int i;
+    for (i = NUM_SYMBOLS - 1; i > local_next_pos; i--) {
+        if (sym_table[i].class != C_PARAMETER) {
+            break;
+        }
+
+        if (i < NUM_SYMBOLS - 6) {
+            break;
+        }
+
+        sym_table[i].posn = new_local_offset(sym_table[i].type);
+        cgstorelocal(param_register--, i);
+    }
+
+    for (; i > local_next_pos; i--) {
+        if (sym_table[i].class == C_PARAMETER) {
+            sym_table[i].posn = param_offset;
+            param_offset += 8;
+        } else {
+            sym_table[i].posn = new_local_offset(sym_table[i].type);
+        }
+    }
+
+    // Align stack pointer to be multiple of 16
+    stack_offset = (local_offset + 15) & ~15;
+    fprintf(outfile, "\taddq\t$%d, %%rsp\n", -stack_offset);
 }
 
 void cgfunctionpostamble(int id) {
@@ -567,4 +611,13 @@ int cgloadlocal(int id, int op) {
         exit(1);
     }
     return r;
+}
+
+void cg_copy_argument(int r, int arg_position) {
+    if (arg_position > 6) {
+        fprintf(outfile, "\tpushq\t%s\n", register_list[r]);
+    } else {
+        fprintf(outfile, "\tmovq\t%s, %s\n", register_list[r],
+            register_list[FIRST_PARAMETER_REGISTER - arg_position + 1]);
+    }
 }
