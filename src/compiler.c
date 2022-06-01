@@ -100,8 +100,6 @@ static void scanner_test() {
 }
 
 int main(int argc, char** argv) {
-
-
     t_astnode* tree;
 
     init();
@@ -111,8 +109,9 @@ int main(int argc, char** argv) {
     outfile = fopen(argv[2], "w");
 
     
-    add_global("printint", P_CHAR, S_FUNCTION, 0, 0);
-    add_global("printchar", P_VOID, S_FUNCTION, 0, 0);
+    add_global("printint", P_CHAR, S_FUNCTION, 0, 0, C_GLOBAL);
+    add_global("printchar", P_VOID, S_FUNCTION, 0, 0, C_GLOBAL);
+    
 
     scan(&token);
     generate_preamble();
@@ -121,8 +120,6 @@ int main(int argc, char** argv) {
 
     fclose(outfile);
     exit(0);
-    
-    
     
     return 0;
 }

@@ -29,14 +29,18 @@ typedef struct symbol_table {
     int class;              // Storage class (GLOBAL/LOCAL)
     int posn;               // For local variables, the relative offset from
                             // the stack base pointer
+#define num_elements posn   // For function (prototypes): Number of parameters
+                            // For structs: Number of fields
 
 } t_symbol_entry;
 
 static int num_globals = 0;
 
-int add_global(char* name, int type, int stype, int endlabel, int size);
-int add_local(char* name, int type, int stype, int endlabel, int size, int isparam);
+int add_global(char* name, int type, int stype, int endlabel, int size, int class);
+int add_local(char* name, int type, int stype, int size, int class);
 int find_symbol(char* name);
+
+void copy_function_parameters(int id);
 
 extern t_symbol_entry* sym_table;
 extern int global_next_pos;
@@ -44,5 +48,7 @@ extern int local_next_pos;
 
 extern int cg_get_local_offset(int type, int isparam);
 extern void generate_global_symbol(int id);
+
+
 
 #endif

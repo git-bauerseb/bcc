@@ -79,6 +79,16 @@ static void update_symbol(int slot, char* name, int type, int stype,
     sym_table[slot].endlabel = end_label;
 }
 
+void copy_function_parameters(int slot) {
+    int i;
+    int id = slot + 1;
+
+    for (i = 0; i < sym_table[slot].num_elements; i++) {
+        add_local(sym_table[id].name, sym_table[id].type,
+        sym_table[id].stype, sym_table[id].size, sym_table[id].class);
+    }
+}
+
 int find_symbol(char* name) {
     int slot;
 
@@ -89,7 +99,7 @@ int find_symbol(char* name) {
     return slot;
 }
 
-int add_local(char* name, int type, int stype, int endlabel, int size, int isparam) {
+int add_local(char* name, int type, int stype, int size, int class) {
     int localslot, globalslot, posn;
 
     if ((localslot = find_local(name)) != -1) {
@@ -98,18 +108,12 @@ int add_local(char* name, int type, int stype, int endlabel, int size, int ispar
 
     localslot = new_local();
     posn = cg_get_local_offset(type, 0);
-    if (isparam) {
-        update_symbol(localslot, name, type, stype, C_PARAMETER, 0, size, 0);
-        globalslot = new_global();
-        update_symbol(globalslot, name, type, stype, C_PARAMETER, 0, size, 0);
-    } else {
-        update_symbol(localslot, name, type, stype, C_LOCAL, 0, size, 0);
-    }
+    update_symbol(localslot, name, type, stype, class, 0, size, 0);
 
     return localslot;
 }
 
-int add_global(char* name, int type, int stype, int endlabel, int size) {
+int add_global(char* name, int type, int stype, int endlabel, int size, int class) {
     int slot;
 
     if ((slot = find_global(name)) != -1) {
@@ -118,6 +122,10 @@ int add_global(char* name, int type, int stype, int endlabel, int size) {
 
     slot = new_global();
     update_symbol(slot, name, type, stype, C_GLOBAL, endlabel, size, 0);
-    generate_global_symbol(slot);
+    
+    if (class == C_GLOBAL) {
+        generate_global_symbol(slot);
+    }
+
     return slot;
 }

@@ -23,7 +23,7 @@ static char* ast_names[] = {
 static t_astnode* function_calls(void);
 static t_astnode* function_declaration(int type);
 
-static int parameter_declaration(void);
+static int parameter_declaration(int id);
 
 // Prefix operation ('*', '&')
 static t_astnode* prefix(void);
@@ -33,7 +33,7 @@ static t_astnode* postfix(void);
 
 // Statements
 static t_astnode* print_statement(void);
-static void var_declaration(int type, int islocal, int isparam);
+static void var_declaration(int type, int class);
 static t_astnode* assignment_statement(void);
 static t_astnode* while_statement(void);
 static t_astnode* single_statement(void);
@@ -203,15 +203,30 @@ static int get_primitive_size(int type) {
 }
 
 
-static int parameter_declaration(void) {
-    int type;
+static int parameter_declaration(int id) {
+    int type, original_parameter_count;
     int num_params = 0;
+
+    int parameter_id = id + 1;
+
+    if (parameter_id) {
+        original_parameter_count = sym_table[id].num_elements;
+    }
+
+
 
     while (token.token != T_RIGHT_PAREN) {
         type = parse_type();
         match(T_IDENTIFIER, "Expected identifier");
 
-        var_declaration(type, 1, 1);
+        if (parameter_id) {
+            if (type != sym_table[id].type) {
+                report_error("Type mismatch");
+            }
+        } else {
+            var_declaration(type, C_PARAMETER);
+        }
+
         num_params++;
 
         switch (token.token) {
@@ -223,6 +238,10 @@ static int parameter_declaration(void) {
             default:
                 report_error("Unexpected token in paramter list");
         }
+    }
+
+    if ((id != -1) && (num_params != original_parameter_count)) {
+        report_error("Parameter mismatch");
     }
 
     return num_params;
@@ -242,7 +261,8 @@ void global_declarations(void) {
             generate_ast(tree, NOREG, 0);
             print_ast(tree, 0);
         } else {
-            var_declaration(type, 0, 0);       // Parse global declarations
+            var_declaration(type, C_GLOBAL);       // Parse global declarations
+            match(T_SEMICOLON, ";");
         }
 
         if (token.token == T_EOF) {
@@ -388,7 +408,7 @@ static t_astnode* shift_expression(void) {
     t_astnode* left, *right;
     int type;
 
-    left = term_expression();
+    left = comparison_expression();
 
     type = token.token;
 
@@ -400,7 +420,7 @@ static t_astnode* shift_expression(void) {
     while (token.token == T_LSHIFT || token.token == T_RSHIFT) {
         scan(&token);
 
-        right = term_expression();
+        right = comparison_expression();
         left->rvalue = right->rvalue = 1;
         convert_types(&left, &right, type);
 
@@ -665,7 +685,7 @@ static t_astnode* comparison_expression(void) {
     t_astnode* left, *right;
     int type;
 
-    left = equals_expression();
+    left = term_expression();
 
     type = token.token;
 
@@ -677,7 +697,7 @@ static t_astnode* comparison_expression(void) {
     while (token.token >= T_EQUALS && token.token <= T_GREATER_EQUAL) {
         scan(&token);
 
-        right = equals_expression();
+        right = term_expression();
         // Change this in every expression
         left->rvalue = right->rvalue = 1;
         convert_types(&left, &right, type);
@@ -830,8 +850,7 @@ void match(int t, char* to_match) {
 
 
 
-static void var_declaration(int type, int islocal, int isparam) {
-    int id;
+static void var_declaration(int type, int class) {
 
     // Text now has the identifier's name.
     // If the next token is a '['
@@ -840,10 +859,11 @@ static void var_declaration(int type, int islocal, int isparam) {
     scan(&token);
 
     if (token.token == T_INTLIT) {
-        if (islocal) {
-            id = add_local(text, pointer_to(type), S_ARRAY, 0, token.value, isparam);
+        if (class == C_LOCAL) {
+            report_error("No local arrays.");
+            // id = add_local(text, pointer_to(type), S_ARRAY, 0, token.value, isparam);
         } else {
-            id = add_global(text, pointer_to(type), S_ARRAY, 0, token.value);
+            add_global(text, pointer_to(type), S_ARRAY, 0, token.value, class);
         }
     }
 
@@ -853,11 +873,14 @@ static void var_declaration(int type, int islocal, int isparam) {
     } else {
         // Add this as a known scalar
         // and generate its space in assembly
-        if (islocal) {
-            id = add_local(text, type, S_VARIABLE, 0, 1, isparam);
+        if (class == C_LOCAL) {
+
+            if (add_local(text, type, S_VARIABLE, 1, class) == -1) {
+                report_error("Duplicate variable");
+            }
         } else {
-            id = add_global(text, type, S_VARIABLE, 0, 1);
-    }
+            add_global(text, type, S_VARIABLE, 0, 1, class);
+        }
     }
 }
 
@@ -1008,7 +1031,7 @@ static t_astnode* single_statement() {
         case T_CHAR:
             type = parse_type();
             match(T_IDENTIFIER, "identifier");
-            var_declaration(type, 1, 0);           // Parse local variables
+            var_declaration(type, C_LOCAL);           // Parse local variables
             match(T_SEMICOLON, ";");
             return NULL;
         case T_IF:
@@ -1052,14 +1075,41 @@ static t_astnode* function_declaration(int type) {
     int nameslot;
     int paramcnt;
 
-    int endlabel = label();
+    int endlabel;
+    int id;
 
-    nameslot = add_global(text, type, S_FUNCTION, endlabel, 0);
-    current_function_id = nameslot;
+
+    // Check if function prototype exists
+    if (((id = find_symbol(text))) != -1) {
+        if (sym_table[id].stype != S_FUNCTION) {
+            id = -1;
+        }
+    }
+
+    if (id == -1) {
+        endlabel = label();
+        nameslot = add_global(text, type, S_FUNCTION, endlabel, 0, C_GLOBAL);
+    }
 
     match(T_LEFT_PAREN, "(");
-    paramcnt = parameter_declaration();
+    paramcnt = parameter_declaration(id);
     match(T_RIGHT_PAREN, ")");
+
+    if (id == -1) {
+        sym_table[nameslot].num_elements = paramcnt;
+    }
+
+    if (token.token == T_SEMICOLON) {
+        scan(&token);
+        return NULL;
+    }
+
+    if (id == -1) {
+        id = nameslot;
+    }
+    copy_function_parameters(id);
+
+    current_function_id = id;
 
     tree = compound_statement();
 
@@ -1072,7 +1122,7 @@ static t_astnode* function_declaration(int type) {
         }
     }
 
-    return make_ast_unary(A_FUNCTION, P_NONE, tree, nameslot);
+    return make_ast_unary(A_FUNCTION, type, tree, id);
 }
 
 
