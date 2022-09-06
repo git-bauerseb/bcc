@@ -8,9 +8,6 @@
 
 #define TEXTLEN     512
 
-
-extern char text[TEXTLEN + 1];
-
 enum {
     T_PLUS = 1,         // '+'
     T_MINUS,        // '-'
@@ -76,6 +73,9 @@ typedef struct token {
 extern FILE* infile;
 extern int line;
 extern int last_char;
+extern char text[TEXTLEN + 1];
+
+extern t_token token;
 
 int scan(t_token* t);
 void reject_token(t_token* t);

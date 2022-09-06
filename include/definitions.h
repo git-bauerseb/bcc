@@ -4,7 +4,7 @@
 #define NOREG (-1)
 #define NOLABEL 0
 
-
+// Enumeration of the different types of nodes stored in the AST.
 enum {
     A_ADD = 1,
     A_SUBTRACT,
@@ -51,20 +51,26 @@ enum {
     A_XOR
 };
 
-/*
-    Type enum
-*/
+// Enumeration of different types
+// The primitive type is encoded in the lowest 4 bit
+// 0: None
+// 1: Void
+// 2: Char
+// 3: Short
+// 4: Int
+// 5: Long
+// The kind of pointer is encoded in the next 4 bit
+// 0001 0100    - Pointer to int (int*)
+// 0010 0100    - Pointer to pointer to int (int**)
+// 0100 0100    - Pointer to pointer to pointer to int (int***)
+// ...
 enum {
-    P_NONE,
-    P_VOID,
-    P_CHAR,
-    P_INT,
-    P_LONG,
-
-    P_VOIDPTR,          // void pointer
-    P_CHARPTR,          // char pointer
-    P_INTPTR,           // int pointer
-    P_LONGPTR           // long pointer
+    TYPE_NONE = 0x0,
+    TYPE_VOID = 0x1,
+    TYPE_CHAR = 0x2,
+    TYPE_SHORT = 0x3,
+    TYPE_INT = 0x4,
+    TYPE_LONG = 0x5,
 };
 
 #endif

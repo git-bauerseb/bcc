@@ -4,17 +4,20 @@
 #include <stdio.h>
 
 #include "definitions.h"
+#include "scan.h"
 
-/*
-    Given a primitive type (e.g. int) returns
-    the appropiate pointer.
-*/
+// Returns true if the provided type is an integral value.
+int inttype(int type);
+
+// Given a primitive type, returns the type which is a pointer to
+// this type.
 int pointer_to(int type);
 
-/*
-    Given a pointer type, return the type
-    which it points to.
-*/
+// Returns true if the provided type is a pointer.
+int pointer_type(int type);
+
+// Given a primitive pointer type, return the type it points to.
+// E.g. int*** -> int**.
 int value_at(int type);
 
 #endif

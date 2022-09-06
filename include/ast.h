@@ -48,10 +48,40 @@ void generate_global_symbol(int id);
 */
 t_astnode* modify_type(t_astnode* tree, int rtype, int op);
 
+/*
+    Externally defined
+*/
 
-extern int generate_ast(t_astnode* n, int reg, int parentASTop);
-extern int generate_global_string(char* text);
-extern int label(void);
+// Expressions
+t_astnode* binary_expression(void);
+t_astnode* function_calls(void);
+
+// Statements
+t_astnode* compound_statement(void);
+t_astnode* return_statement(void);
+t_astnode* print_statement(void);
+t_astnode* assignment_statement(void);
+t_astnode* while_statement(void);
+t_astnode* single_statement(void);
+t_astnode* if_statement(void);
+
+// Declarations
+t_astnode* function_declaration(int type);
+int parameter_declaration(int id);
+void global_declarations(void);
+void var_declaration(int type, int class);
+
+// Types
+int inttype(int type);
+int parse_type(void);
+
+// Generation
+int generate_ast(t_astnode* n, int reg, int parentASTop);
+int generate_global_string(char* text);
+int label(void);
+
+// Debugging
+extern void print_ast(t_astnode* root, int depth);
 
 extern t_token token;
 extern int current_function_id;

@@ -40,7 +40,11 @@ int add_global(char* name, int type, int stype, int endlabel, int size, int clas
 int add_local(char* name, int type, int stype, int size, int class);
 int find_symbol(char* name);
 
+void clear_symbol_table(void);
+
 void copy_function_parameters(int id);
+
+void setup_symbol_table(void);
 
 extern t_symbol_entry* sym_table;
 extern int global_next_pos;

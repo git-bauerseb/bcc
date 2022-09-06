@@ -6,6 +6,7 @@
 
 #include "definitions.h"
 #include "symbol.h"
+#include "types.h"
 
 #define NUM_FREE_REGISTERS 4        // Registers that can be used freely by the program
 #define FIRST_PARAMETER_REGISTER 9  // Register that is the first one used for parameters (according to calling convention)
