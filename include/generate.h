@@ -2,7 +2,7 @@
 #define GENERATE_H
 
 #include "ast.h"
-#include "cg.h"
+#include "code_generation.h"
 
 
 /*
@@ -14,10 +14,7 @@
 */
 int generate_ast(t_astnode* n, int reg, int parentASTop);
 
-void generate_global_symbol(int id);
 int generate_global_string(char* text);
 int label(void);
-
-void generate_reset_locals(void);
 
 #endif

@@ -1,4 +1,4 @@
-#include "../include/cg.h"
+#include "../include/code_generation.h"
 
 static int local_offset;
 static int stack_offset;
@@ -72,6 +72,21 @@ static int cgcompare(int r1, int r2, char* how) {
     return r2;
 }
 
+void cglabel(int l) {
+    fprintf(outfile, "L%d:\n", l);
+}
+
+void cgjump(int l) {
+    fprintf(outfile, "\tjmp\tL%d\n", l);
+}
+
+void cgpreamble() {
+    free_all_registers();
+}
+
+void cgpostamble() {}
+
+
 int cgprimsize(int type) {
 
     // Pointer needs 8-byte on 64-bit
@@ -140,52 +155,51 @@ void free_all_registers(void) {
 
 int cgloadint(int value) {
     int r = allocate_register();
-
     fprintf(outfile, "\tmovq\t$%d, %s\n", value, register_list[r]);
     return r;
 }
 
-int cgloadglob(int id, int op) {
+int cgloadglob(t_symbol_entry* symbol, int op) {
   int r = allocate_register();
 
-  if (pointer_type(sym_table[id].type)) {
-      if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincq\t%s(\%%rip)\n", sym_table[id].name);}
-      if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecq\t%s(\%%rip)\n", sym_table[id].name);}
-      fprintf(outfile, "\tmovq\t%s(\%%rip), %s\n", sym_table[id].name, register_list[r]);
-      if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincq\t%s(\%%rip)\n", sym_table[id].name);}
-      if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecq\t%s(\%%rip)\n", sym_table[id].name);}
+  if (pointer_type(symbol->type)) {
+      if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincq\t%s(\%%rip)\n", symbol->name);}
+      if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecq\t%s(\%%rip)\n", symbol->name);}
+      fprintf(outfile, "\tmovq\t%s(\%%rip), %s\n", symbol->name, register_list[r]);
+      if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincq\t%s(\%%rip)\n", symbol->name);}
+      if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecq\t%s(\%%rip)\n", symbol->name);}
 
   } else {
       // Print out the code to initialise it
-      switch (sym_table[id].type) {
+      switch (symbol->type) {
         case TYPE_CHAR:
-                if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincb\t%s(\%%rip)\n", sym_table[id].name);}
-                if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecb\t%s(\%%rip)\n", sym_table[id].name);}
+                if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincb\t%s(\%%rip)\n", symbol->name);}
+                if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecb\t%s(\%%rip)\n", symbol->name);}
 
-                fprintf(outfile, "\tmovzbq\t%s(%%rip), %s\n", sym_table[id].name, register_list[r]);
+                fprintf(outfile, "\tmovzbq\t%s(%%rip), %s\n", symbol->name, register_list[r]);
 
-                if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincb\t%s(\%%rip)\n", sym_table[id].name);}
-                if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecb\t%s(\%%rip)\n", sym_table[id].name);}
+                if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincb\t%s(\%%rip)\n", symbol->name);}
+                if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecb\t%s(\%%rip)\n", symbol->name);}
             break;
 
         case TYPE_INT:
-            if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincl\t%s(\%%rip)\n", sym_table[id].name);}
-            if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecl\t%s(\%%rip)\n", sym_table[id].name);}
-            fprintf(outfile, "\tmovslq\t%s(\%%rip), %s\n", sym_table[id].name, register_list[r]);
-            if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincl\t%s(\%%rip)\n", sym_table[id].name);}
-            if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecl\t%s(\%%rip)\n", sym_table[id].name);}
+            if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincl\t%s(\%%rip)\n", symbol->name);}
+            if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecl\t%s(\%%rip)\n", symbol->name);}
+            fprintf(outfile, "\tmovslq\t%s(\%%rip), %s\n", symbol->name, register_list[r]);
+            if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincl\t%s(\%%rip)\n", symbol->name);}
+            if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecl\t%s(\%%rip)\n", symbol->name);}
             break;
 
         case TYPE_LONG:
-            if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincq\t%s(\%%rip)\n", sym_table[id].name);}
-            if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecq\t%s(\%%rip)\n", sym_table[id].name);}
-            fprintf(outfile, "\tmovq\t%s(\%%rip), %s\n", sym_table[id].name, register_list[r]);
-            if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincq\t%s(\%%rip)\n", sym_table[id].name);}
-            if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecq\t%s(\%%rip)\n", sym_table[id].name);}
+            if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincq\t%s(\%%rip)\n", symbol->name);}
+            if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecq\t%s(\%%rip)\n", symbol->name);}
+            fprintf(outfile, "\tmovq\t%s(\%%rip), %s\n", symbol->name, register_list[r]);
+            if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincq\t%s(\%%rip)\n", symbol->name);}
+            if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecq\t%s(\%%rip)\n", symbol->name);}
             break;
 
         default:
-            fprintf(stderr, "Bad type in cgloadglob: %d", sym_table[id].type);
+            fprintf(stderr, "Bad type in cgloadglob: %d", symbol->type);
             exit(1);
         }
     }
@@ -211,47 +225,23 @@ int cgstorderef(int r1, int r2, int type) {
     return r1;
 }
 
-int cgstoreglob(int r, int id) {
+int cgstoreglob(int r, t_symbol_entry* symbol) {
 
-    if (pointer_type(sym_table[id].type)) {
-        fprintf(outfile, "\tmovq\t%s, %s(\%%rip)\n", register_list[r], sym_table[id].name);
+    if (pointer_type(symbol->type)) {
+        fprintf(outfile, "\tmovq\t%s, %s(\%%rip)\n", register_list[r], symbol->name);
     } else {
-        switch (sym_table[id].type) {
+        switch (symbol->type) {
             case TYPE_CHAR:
-                fprintf(outfile, "\tmovb\t%s, %s(\%%rip)\n", byte_register_list[r],
-                        sym_table[id].name);
+                fprintf(outfile, "\tmovb\t%s, %s(\%%rip)\n", byte_register_list[r], symbol->name);
                 break;
             case TYPE_INT:
-                fprintf(outfile, "\tmovl\t%s, %s(\%%rip)\n", double_register_list[r],
-                    sym_table[id].name);
+                fprintf(outfile, "\tmovl\t%s, %s(\%%rip)\n", double_register_list[r], symbol->name);
                 break;
             case TYPE_LONG:
-                fprintf(outfile, "\tmovq\t%s, %s(\%%rip)\n", register_list[r], sym_table[id].name);
+                fprintf(outfile, "\tmovq\t%s, %s(\%%rip)\n", register_list[r], symbol->name);
                 break;
             default:
-            fprintf(stderr, "Bad type in cgloadglob: %d.\n", sym_table[id].type);
-        }
-    }
-
-    return r;
-}
-
-int cgstorelocal(int r, int id) {
-    if (pointer_type(sym_table[id].type)) {
-        fprintf(outfile, "\tmovq\t%s, %d(\%%rbp)\n", register_list[r], sym_table[id].posn);
-    } else {
-        switch (sym_table[id].type) {
-            case TYPE_CHAR:
-                fprintf(outfile, "\tmovb\t%s, %d(\%%rbp)\n", byte_register_list[r], sym_table[id].posn);
-                break;
-            case TYPE_INT:
-                fprintf(outfile, "\tmovl\t%s, %d(\%%rbp)\n", double_register_list[r], sym_table[id].posn);
-                break;
-            case TYPE_LONG:
-                fprintf(outfile, "\tmovq\t%s, %d(\%%rbp)\n", register_list[r], sym_table[id].posn);
-                break;
-            default:
-                fprintf(stderr, "Bad type in cgloadglob: %d.\n", sym_table[id].type);
+                report_error("Bad type in cgloadglob: %d.\n", symbol->type);
                 break;
         }
     }
@@ -259,9 +249,100 @@ int cgstorelocal(int r, int id) {
     return r;
 }
 
-void cgreturn(int reg, int id) {
-    // Generate code depending on the function's type
-    switch (sym_table[id].type) {
+int cgloadlocal(t_symbol_entry* symbol, int op) {
+    int r = allocate_register();
+
+    if (pointer_type(symbol->type)) {
+        if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincq\t%d(\%%rbp)\n", symbol->offset);}
+        if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecq\t%d(\%%rbp)\n", symbol->offset);}
+        fprintf(outfile, "\tmovq\t%d(\%%rbp), %s\n", symbol->offset, register_list[r]);
+        if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincq\t%d(\%%rbp)\n", symbol->offset);}
+        if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecq\t%d(\%%rbp)\n", symbol->offset);}
+    } else {
+        switch (symbol->type) {
+            case TYPE_CHAR:
+                if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincb\t%d(\%%rbp)\n", symbol->offset);}
+                if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecb\t%d(\%%rbp)\n", symbol->offset);}
+                fprintf(outfile, "\tmovzbq\t%d(%%rbp), %s\n", symbol->offset,  register_list[r]);
+                if (op == A_POST_INCREMENT) { fprintf(outfile, "\tincb\t%d(\%%rbp)\n", symbol->offset);}
+                if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecb\t%d(\%%rbp)\n", symbol->offset);}
+                break;
+
+            case TYPE_INT:
+                if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincl\t%d(\%%rbp)\n", symbol->offset);}
+                if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecl\t%d(\%%rbp)\n", symbol->offset);}
+                fprintf(outfile, "\tmovslq\t%d(\%%rbp), %s\n", symbol->offset, register_list[r]);
+                if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincl\t%d(\%%rbp)\n", symbol->offset);}
+                if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecl\t%d(\%%rbp)\n", symbol->offset);}
+                break;
+
+            case TYPE_LONG:
+                if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincq\t%d(\%%rbp)\n", symbol->offset);}
+                if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecq\t%d(\%%rbp)\n", symbol->offset);}
+                fprintf(outfile, "\tmovq\t%d(\%%rbp), %s\n", symbol->offset, register_list[r]);
+                if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincq\t%d(\%%rbp)\n", symbol->offset);}
+                if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecq\t%d(\%%rbp)\n", symbol->offset);}
+                break;
+
+            default:
+                fprintf(stderr, "Bad type in cgloadglob: %d",  symbol->type);
+                exit(1);
+                break;
+        }
+    }
+
+    return r;
+}
+
+int cgstorelocal(int r, t_symbol_entry* symbol) {
+    if (pointer_type(symbol->type)) {
+        fprintf(outfile, "\tmovq\t%s, %d(\%%rbp)\n", register_list[r], symbol->offset);
+    } else {
+        switch (symbol->type) {
+            case TYPE_CHAR:
+                fprintf(outfile, "\tmovb\t%s, %d(\%%rbp)\n", byte_register_list[r], symbol->offset);
+                break;
+            case TYPE_INT:
+                fprintf(outfile, "\tmovl\t%s, %d(\%%rbp)\n", double_register_list[r], symbol->offset);
+                break;
+            case TYPE_LONG:
+                fprintf(outfile, "\tmovq\t%s, %d(\%%rbp)\n", register_list[r], symbol->offset);
+                break;
+            default:
+                fprintf(stderr, "Bad type in cgloadglob: %d.\n", symbol->type);
+                break;
+        }
+    }
+
+    return r;
+}
+
+void cgglobsym(t_symbol_entry* symbol) {
+    int typesize;
+
+    // Dont generate symbol for function
+    if (symbol->stype == S_FUNCTION) {
+        return;
+    }
+
+    typesize = cgprimsize(symbol->type);
+    cgdataseg();
+
+    fprintf(outfile, "\t.data\n" "\t.globl\t%s\n", symbol->name);
+    fprintf(outfile, "%s:", symbol->name);
+
+    for (int i = 0; i < symbol->size; i++) {
+        switch(typesize) {
+            case 1: fprintf(outfile, "\t.byte\t0\n"); break;
+            case 4: fprintf(outfile, "\t.long\t0\n"); break;
+            case 8: fprintf(outfile, "\t.quad\t0\n"); break;
+            default: fprintf(stderr, "Unknown typesize in cgglobsym: %d\n", typesize); exit(1);
+        }
+    }
+}
+
+void cgreturn(int reg, t_symbol_entry* symbol) {
+    switch (symbol->type) {
         case TYPE_CHAR:
             fprintf(outfile, "\tmovzbl\t%s, %%eax\n", byte_register_list[reg]);
             break;
@@ -272,51 +353,27 @@ void cgreturn(int reg, int id) {
             fprintf(outfile, "\tmovq\t%s, %%rax\n", register_list[reg]);
             break;
         default:
-                fprintf(stderr, "Bad function type in cgreturn: %d.\n", sym_table[id].type);
+            report_error("Bad function type in cgreturn: %d.\n", symbol->type);
+            break;
     }
-    cgjump(sym_table[id].endlabel);
+
+    cgjump(symbol->endlabel);
 }
 
-int cgcall(int id, int numargs) {
+int cgcall(t_symbol_entry* symbol, int argc) {
     // Get a new register
     int outr = allocate_register();
 
-    fprintf(outfile, "\tcall\t%s\n", sym_table[id].name);
+    fprintf(outfile, "\tcall\t%s\n", symbol->name);
 
-    if (numargs > 6) {
-        // Remove arguments pushed on stack
-        fprintf(outfile, "\taddq\t$%d, %%rsp\n", 8*(numargs-6));
+    if (argc > 6) {
+        fprintf(outfile, "\taddq\t$%d, %%rsp\n", 8*(argc-6));
     } else {
         fprintf(outfile, "\tmovq\t%%rax, %s\n", register_list[outr]);
     }
 
     return outr;
 }
-
-void cgglobsym(int id) {
-    int typesize;
-
-    // Dont generate symbol for function
-    if (sym_table[id].stype == S_FUNCTION) {
-        return;
-    }
-
-    typesize = cgprimsize(sym_table[id].type);
-    cgdataseg();
-
-    fprintf(outfile, "\t.data\n" "\t.globl\t%s\n", sym_table[id].name);
-    fprintf(outfile, "%s:", sym_table[id].name);
-
-    for (int i = 0; i < sym_table[id].size; i++) {
-        switch(typesize) {
-            case 1: fprintf(outfile, "\t.byte\t0\n"); break;
-            case 4: fprintf(outfile, "\t.long\t0\n"); break;
-            case 8: fprintf(outfile, "\t.quad\t0\n"); break;
-            default: fprintf(stderr, "Unknown typesize in cgglobsym: %d\n", typesize); exit(1);
-        }
-    }
-}
-
 
 int cgxor(int r1, int r2) {
     fprintf(outfile, "\txorq\t%s, %s\n", register_list[r1], register_list[r2]);
@@ -409,52 +466,15 @@ int cgdiv(int r1, int r2) {
     return r1;
 }
 
-void cgprintint(int r) {
-    fprintf(outfile, "\tmovq\t%s, %%rdi\n", register_list[r]);
-    fprintf(outfile, "\tcall\tprintint\n");
-    free_register(r);
-}
+void cgfunctionpreamble(t_symbol_entry* symbol) {
+    char* name = symbol->name;
+    t_symbol_entry* parameter, *local_var;
 
-void cgpreamble() {
-  free_all_registers();
-  /*
-  fputs(
-	"\t.text\n"
-	".LC0:\n"
-	"\t.string\t\"%d\\n\"\n"
-	"printint:\n"
-	"\tpushq\t%rbp\n"
-	"\tmovq\t%rsp, %rbp\n"
-	"\tsubq\t$16, %rsp\n"
-	"\tmovl\t%edi, -4(%rbp)\n"
-	"\tmovl\t-4(%rbp), %eax\n"
-	"\tmovl\t%eax, %esi\n"
-	"\tleaq	.LC0(%rip), %rdi\n"
-	"\tmovl	$0, %eax\n"
-	"\tcall	printf@PLT\n"
-	"\tnop\n"
-	"\tleave\n"
-	"\tret\n"
-	"\n",
-  outfile);
-  */
-}
-
-void cgpostamble() {
-  fputs(
-	"\tmovl	$0, %eax\n"
-	"\tpopq	%rbp\n"
-	"\tret\n",
-  outfile);
-}
-
-
-void cgfunctionpreamble(int id) {
-    char* name = sym_table[id].name;
-
+    int p_count;
     int param_offset = 16;
     int param_register = FIRST_PARAMETER_REGISTER;
 
+    cgtextseg();
     local_offset = 0;
 
     fprintf(outfile,
@@ -465,36 +485,26 @@ void cgfunctionpreamble(int id) {
         "\tmovq\t%%rsp, %%rbp\n", name, name, name);
 
     // Copy in-register parameters onto stack
-    int i;
-    for (i = NUM_SYMBOLS - 1; i > local_next_pos; i--) {
-        if (sym_table[i].class != C_PARAMETER) {
-            break;
-        }
-
-        if (i < NUM_SYMBOLS - 6) {
-            break;
-        }
-
-        sym_table[i].posn = new_local_offset(sym_table[i].type);
-        cgstorelocal(param_register--, i);
-    }
-
-    for (; i > local_next_pos; i--) {
-        if (sym_table[i].class == C_PARAMETER) {
-            sym_table[i].posn = param_offset;
+    for (parameter = symbol->member, p_count = 0; parameter != NULL; parameter = parameter->next, p_count++) {
+        if (p_count > 6) {
+            parameter->offset = param_offset;
             param_offset += 8;
         } else {
-            sym_table[i].posn = new_local_offset(sym_table[i].type);
+            parameter->offset = new_local_offset(parameter->type);
+            cgstorelocal(param_register--, parameter);
         }
     }
 
-    // Align stack pointer to be multiple of 16
+    for (local_var = local_symbols->head; local_var != NULL; local_var = local_var->next) {
+        local_var->offset = new_local_offset(local_var->type);
+    }
+
     stack_offset = (local_offset + 15) & ~15;
-    fprintf(outfile, "\taddq\t$%d, %%rsp\n", -stack_offset);
+    fprintf(outfile, "\taddq\t$%d, %%rsp\n",-stack_offset);
 }
 
-void cgfunctionpostamble(int id) {
-    cglabel(sym_table[id].endlabel);
+void cgfunctionpostamble(t_symbol_entry* symbol) {
+    cglabel(symbol->endlabel);
     fprintf(outfile, "\taddq\t$%d,%%rsp\n", stack_offset);
     fputs("\tpopq %rbp\n" "\tret\n", outfile);
 }
@@ -502,15 +512,6 @@ void cgfunctionpostamble(int id) {
 void generate_preamble() {cgpreamble();}
 void generate_postamble() {cgpostamble();}
 void generate_free_registers() {free_all_registers();}
-void generate_printint(int reg) {cgprintint(reg);}
-
-void cglabel(int l) {
-    fprintf(outfile, "L%d:\n", l);
-}
-
-void cgjump(int l) {
-    fprintf(outfile, "\tjmp\tL%d\n", l);
-}
 
 int cgcompare_and_set(int ASTop, int r1, int r2) {
     if (!isCompOperator(ASTop)) {
@@ -537,10 +538,10 @@ int cgcompare_and_jump(int ASTop, int r1, int r2, int label) {
     return NOREG;
 }
 
-int cgaddress(int id) {
+int cgaddress(t_symbol_entry* symbol) {
     int r = allocate_register();
 
-    fprintf(outfile, "\tleaq\t%s(%%rip), %s\n", sym_table[id].name, register_list[r]);
+    fprintf(outfile, "\tleaq\t%s(%%rip), %s\n", symbol->name, register_list[r]);
     return r;
 }
 
@@ -571,48 +572,6 @@ void cg_reset_locals(void) {
 int cg_get_local_offset(int type, int isparam) {
     local_offset += cgprimsize(type) > 4 ? cgprimsize(type) : 4;
     return -local_offset;
-}
-
-int cgloadlocal(int id, int op) {
-  int r = allocate_register();
-
-  if (pointer_type(sym_table[id].type)) {
-
-  } else {
-      // Print out the code to initialise it
-      switch (sym_table[id].type) {
-        case TYPE_CHAR:
-            if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincb\t%d(\%%rbp)\n", sym_table[id].posn);}
-            if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecb\t%d(\%%rbp)\n", sym_table[id].posn);}
-            fprintf(outfile, "\tmovzbq\t%d(%%rbp), %s\n", sym_table[id].posn,  register_list[r]);
-            if (op == A_POST_INCREMENT) { fprintf(outfile, "\tincb\t%d(\%%rbp)\n", sym_table[id].posn);}
-            if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecb\t%d(\%%rbp)\n", sym_table[id].posn);}
-            break;
-
-        case TYPE_INT:
-            if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincl\t%d(\%%rbp)\n", sym_table[id].posn);}
-            if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecl\t%d(\%%rbp)\n", sym_table[id].posn);}
-            fprintf(outfile, "\tmovslq\t%d(\%%rbp), %s\n", sym_table[id].posn, register_list[r]);
-            if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincl\t%d(\%%rbp)\n", sym_table[id].posn);}
-            if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecl\t%d(\%%rbp)\n", sym_table[id].posn);}
-            break;
-
-        case TYPE_LONG:
-            if (op == A_PRE_INCREMENT) {fprintf(outfile, "\tincq\t%d(\%%rbp)\n", sym_table[id].posn);}
-            if (op == A_PRE_DECREMENT) {fprintf(outfile, "\tdecq\t%d(\%%rbp)\n", sym_table[id].posn);}
-            fprintf(outfile, "\tmovq\t%d(\%%rbp), %s\n", sym_table[id].posn, register_list[r]);
-            if (op == A_POST_INCREMENT) {fprintf(outfile, "\tincq\t%d(\%%rbp)\n", sym_table[id].posn);}
-            if (op == A_POST_DECREMENT) {fprintf(outfile, "\tdecq\t%d(\%%rbp)\n", sym_table[id].posn);}
-            break;
-
-        default:
-            fprintf(stderr, "Bad type in cgloadglob: %d", sym_table[id].type);
-            exit(1);
-            break;
-        }
-    }
-
-    return r;
 }
 
 void cg_copy_argument(int r, int arg_position) {

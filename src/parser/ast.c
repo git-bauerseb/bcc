@@ -7,7 +7,7 @@ static int get_primitive_size(int type);
 static int isCompOperator(int tokenType);
 static int type_compatible(int* left, int* right, int onlyright);
 
-t_astnode* make_astnode(int op, int type, t_astnode* left, t_astnode* right, int value) {
+t_astnode* make_astnode(int op, int type, t_astnode* left, t_astnode* right, t_symbol_entry* symbol, int value) {
     t_astnode *n;
 
     n = (t_astnode *)malloc(sizeof(t_astnode));
@@ -20,12 +20,13 @@ t_astnode* make_astnode(int op, int type, t_astnode* left, t_astnode* right, int
     n->op = op;
     n->left = left;
     n->right = right;
-    n->v.value = value;
+    n->value = value;
+    n->symbol = symbol;
     n->type = type;
     return n;
 }
 
-t_astnode* make_ternary_astnode(int op, int type, t_astnode* left, t_astnode* middle, t_astnode* right, int value) {
+t_astnode* make_ternary_astnode(int op, int type, t_astnode* left, t_astnode* middle, t_astnode* right, t_symbol_entry* symbol, int value) {
     t_astnode *n;
 
     n = (t_astnode *)malloc(sizeof(t_astnode));
@@ -39,17 +40,17 @@ t_astnode* make_ternary_astnode(int op, int type, t_astnode* left, t_astnode* mi
     n->left = left;
     n->middle = middle;
     n->right = right;
-    n->v.value = value;
+    n->value = value;
     n->type = type;
     return n;
 }
 
-t_astnode* make_ast_leaf(int op, int type, int value) {
-    return make_astnode(op, type, NULL, NULL, value);
+t_astnode* make_ast_leaf(int op, int type, t_symbol_entry* symbol, int value) {
+    return make_astnode(op, type, NULL, NULL, symbol, value);
 }
 
-t_astnode* make_ast_unary(int op, int type, t_astnode *left, int value) {
-    return make_astnode(op, type, left, NULL, value);
+t_astnode* make_ast_unary(int op, int type, t_astnode *left, t_symbol_entry* symbol, int value) {
+    return make_astnode(op, type, left, NULL, symbol, value);
 }
 
 int arithop(int tok) {
@@ -166,7 +167,7 @@ t_astnode* modify_type(t_astnode* tree, int rtype, int op) {
         if (lsize > rsize) {return NULL;}
 
         // Widen to right type
-        if (rsize > lsize) {return make_ast_unary(A_WIDEN, rtype, tree, 0);}
+        if (rsize > lsize) {return make_ast_unary(A_WIDEN, rtype, tree, tree->symbol, 0);}
     }
 
     if (pointer_type(ltype)) {
@@ -180,7 +181,7 @@ t_astnode* modify_type(t_astnode* tree, int rtype, int op) {
             rsize = get_primitive_size(value_at(rtype));
 
             if (rsize > 1) {
-                return make_ast_unary(A_SCALE, rtype, tree, rsize);
+                return make_ast_unary(A_SCALE, rtype, tree, tree->symbol, rsize);
             } else {
                 return tree;    // No need to scale
             }

@@ -21,7 +21,7 @@ int interpret_ast(t_astnode* n) {
         case A_DIVIDE:
             return left_val / right_val;
         case A_INTLIT:
-            return n->v.value;
+            return n->value;
         default:
             fprintf(stderr, "Unknown AST operator %d\n", n->op);
             exit(1);

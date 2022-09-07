@@ -4,12 +4,13 @@
 
 #include "../include/scan.h"
 #include "../include/ast.h"
-#include "../include/interpret.h"
-#include "../include/generate.h"
-#include "../include/cg.h"
-#include "../include/symbol.h"
 
 #define MAX_OBJECTS 100
+
+
+#ifdef DEBUG
+    #include "../include/test.h"
+#endif
 
 char* object_files[MAX_OBJECTS];
 int object_count = 0;
@@ -92,6 +93,8 @@ char* token_names[] = {
 };
 
 t_symbol_entry* sym_table;
+
+t_symbol_entry* function_id;
 
 FILE* infile;
 
@@ -281,6 +284,12 @@ void do_link() {
 }
 
 int main(int argc, char** argv) {
+
+#ifdef DEBUG
+    test_types();
+#endif
+
+#ifndef DEBUG
     int l_idx;
     int flags = process_args(argc, argv, &l_idx);
 
@@ -321,7 +330,7 @@ int main(int argc, char** argv) {
 
         l_idx++;
     }
-
+#endif
     exit(0);
     return 0;
 }

@@ -30,8 +30,8 @@ void print_ast(t_astnode* root, int depth) {
 
     switch (root->op) {
         case A_ASSIGN: printf("%s%s\n", prefBuff, ast_name); break;
-        case A_IDENTIFIER: printf("%s%s(%s) %s\n", prefBuff, ast_name, sym_table[root->v.id].name, root->rvalue != 0 ? "rvalue" : ""); break;
-        case A_INTLIT: printf("%s%s(%d) %s\n", prefBuff, ast_name, root->v.value, root->rvalue != 0 ? "rvalue" : ""); break;
+        case A_IDENTIFIER: printf("%s%s(%s) %s\n", prefBuff, ast_name, root->symbol->name, root->rvalue != 0 ? "rvalue" : ""); break;
+        case A_INTLIT: printf("%s%s(%d) %s\n", prefBuff, ast_name, root->value, root->rvalue != 0 ? "rvalue" : ""); break;
         case A_FUNCTION: printf("%s%s\n", prefBuff, ast_name); break;
         case A_GLUE: printf("%s%s\n", prefBuff, ast_name); break;
         case A_RETURN: printf("%s%s\n", prefBuff, ast_name); break;

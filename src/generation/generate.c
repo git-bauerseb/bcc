@@ -36,9 +36,9 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
             generate_free_registers();
             return NOREG;
         case A_FUNCTION:
-            cgfunctionpreamble(n->v.id);
+            cgfunctionpreamble(n->symbol);
             generate_ast(n->left, NOLABEL, n->op);
-            cgfunctionpostamble(n->v.id);
+            cgfunctionpostamble(n->symbol);
             return NOREG;
         case A_FUNCTION_CALL:
             return generate_function_call(n);
@@ -57,25 +57,25 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
         case A_SUBTRACT: return cgsub(leftreg, rightreg);
         case A_MULTIPLY: return cgmul(leftreg, rightreg);
         case A_DIVIDE: return cgdiv(leftreg, rightreg);
-        case A_INTLIT: return cgloadint(n->v.value);
+        case A_INTLIT: return cgloadint(n->value);
         case A_LSHIFT: return cgshift_l(leftreg, rightreg);
         case A_RSHIFT: return cgshift_r(leftreg, rightreg);
         case A_OR: return cg_or(leftreg, rightreg);
         case A_AND: return cg_and(leftreg, rightreg);
         case A_LOGIC_NOT: return cg_logic_not(leftreg);
         case A_IDENTIFIER:
-            if (sym_table[n->v.id].class == C_LOCAL || sym_table[n->v.id].class == C_PARAMETER) {
-                return cgloadlocal(n->v.id, n->op);
+            if (n->symbol->class == C_LOCAL || n->symbol->class == C_PARAMETER) {
+                return cgloadlocal(n->symbol, n->op);
             } else {
-                return cgloadglob(n->v.id, n->op);
+                return cgloadglob(n->symbol, n->op);
             }
         case A_ASSIGN: 
             switch (n->right->op) {
                 case A_IDENTIFIER: 
-                    if (sym_table[n->right->v.id].class == C_LOCAL) {
-                        return cgstorelocal(leftreg, n->right->v.id);
+                    if (n->right->symbol->class == C_LOCAL) {
+                        return cgstorelocal(leftreg, n->right->symbol);
                     } else {
-                        return cgstoreglob(leftreg, n->right->v.id);
+                        return cgstoreglob(leftreg, n->right->symbol);
                     }
                 case A_DEREFERENCE: return (cgstorderef(leftreg, rightreg, n->right->type));
                 default: fprintf(stderr, "Cant assign in generate_ast(), op: %d\n", n->op);
@@ -91,20 +91,16 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
             } else {
                 return cgcompare_and_set(n->op, leftreg, rightreg);
             }
-        case A_PRINT:
-            generate_printint(leftreg);
-            generate_free_registers();
-            return NOREG;
         case A_WIDEN:
             // Widen children type to parent type
             return cgwiden(leftreg, n->left->type, n->type);
         case A_RETURN:
-            cgreturn(leftreg, current_function_id);
+            cgreturn(leftreg, function_id);
             return NOREG;
         case A_FUNCTION_CALL:
             return generate_function_call(n);
         case A_ADDR:
-            return cgaddress(n->v.id);
+            return cgaddress(n->symbol);
         case A_DEREFERENCE:
             // If rvalue -> dereference, else leave for for assignment to store through pointer
             if (n->rvalue) {
@@ -115,24 +111,24 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
         case A_INVERT: return cg_invert(leftreg);
         case A_NEGATE: return cg_negate(leftreg);
         case A_PRE_INCREMENT:
-                return cgloadglob(n->left->v.id, n->op);
+                return cgloadglob(n->left->symbol, n->op);
         case A_PRE_DECREMENT:
-                return cgloadglob(n->left->v.id, n->op);
+                return cgloadglob(n->left->symbol, n->op);
         case A_POST_INCREMENT:
-                return cgloadglob(n->v.id, n->op);
+                return cgloadglob(n->symbol, n->op);
         case A_POST_DECREMENT:
-                return cgloadglob(n->v.id, n->op);
+                return cgloadglob(n->symbol, n->op);
         case A_SCALE:
-            switch (n->v.size) {
+            switch (n->size) {
                 case 2: return cgshlconst(leftreg, 1);
                 case 4: return cgshlconst(leftreg, 2);
                 case 8: return cgshlconst(leftreg, 3);
                 default:
-                    rightreg = cgloadint(n->v.size);
+                    rightreg = cgloadint(n->size);
                     return cgmul(leftreg, rightreg);
             }
         case A_STRLIT:
-            return cgloadglobstr(n->v.id);
+            return cgloadglobstr(n->value);
         case A_XOR:
             return cgxor(leftreg, rightreg);
         default:
@@ -152,20 +148,16 @@ static int generate_function_call(t_astnode* n) {
         reg = generate_ast(gluetree->right, NOLABEL, gluetree->op);
 
         // Copy into nth function parameter
-        cg_copy_argument(reg, gluetree->v.size);
+        cg_copy_argument(reg, gluetree->size);
 
         // Keep number of arguments
-        args = (args == 0) ? gluetree->v.size : args;
+        args = (args == 0) ? gluetree->size : args;
 
         generate_free_registers();
         gluetree = gluetree->left;
     }
 
-    return cgcall(n->v.id, args);
-}
-
-void generate_global_symbol(int id) {
-    cgglobsym(id);
+    return cgcall(n->symbol, args);
 }
 
 int generate_global_string(char* text) {
@@ -231,8 +223,4 @@ static int generate_while_AST(t_astnode* n) {
     cglabel(lend);
 
     return NOREG;
-}
-
-void generate_reset_locals(void) {
-    cg_reset_locals();
 }

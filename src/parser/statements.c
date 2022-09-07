@@ -8,7 +8,6 @@ t_astnode* compound_statement() {
     match(T_LEFT_BRACE, "{");
 
     while (1) {
-        
         tree = single_statement();
 
         if (tree != NULL 
@@ -21,7 +20,7 @@ t_astnode* compound_statement() {
             if (left == NULL) {
                 left = tree;
             } else {
-                left = make_astnode(A_GLUE, TYPE_NONE, left, tree, 0);
+                left = make_astnode(A_GLUE, TYPE_NONE, left, tree, NULL, 0);
             }
         }
 
@@ -49,9 +48,9 @@ static t_astnode* for_statement() {
 
     body = compound_statement();
 
-    tree = make_astnode(A_GLUE, TYPE_NONE, body, inc, 0);
-    tree = make_astnode(A_WHILE, TYPE_NONE, cond, tree, 0);
-    tree = make_astnode(A_GLUE, TYPE_NONE, init, tree, 0);
+    tree = make_astnode(A_GLUE, TYPE_NONE, body, inc, NULL, 0);
+    tree = make_astnode(A_WHILE, TYPE_NONE, cond, tree, NULL, 0);
+    tree = make_astnode(A_GLUE, TYPE_NONE, init, tree, NULL, 0);
 
     return tree;
 }
@@ -84,24 +83,25 @@ t_astnode* return_statement(void) {
     t_astnode* tree;
     int returntype, function_type;
 
-    if (sym_table[current_function_id].type == TYPE_VOID) {
+    if (function_id->type == TYPE_VOID) {
         fprintf(stderr, "Cannot return from a void function");
     }
 
     match(T_RETURN, "return");
     tree = binary_expression();
-    tree = modify_type(tree, sym_table[current_function_id].type, 0);
+    tree = modify_type(tree, function_id->type, 0);
 
     if (tree == NULL) {
         fprintf(stderr, "Incompatible type to return.\n");
         exit(1);
     }
 
-    tree = make_ast_unary(A_RETURN, TYPE_NONE, tree, 0);
+    tree = make_ast_unary(A_RETURN, TYPE_NONE, tree, NULL, 0);
 
     return tree;
 }
 
+/*
 t_astnode* assignment_statement(void) {
     t_astnode* left, *right, *tree;
     int id;
@@ -116,9 +116,6 @@ t_astnode* assignment_statement(void) {
         fprintf(stderr, "Undeclared variable %s\n", text);
         exit(1);
     }
-
-
-   
 
     // Not reject token because either '(' or '=' are coming
     // after identifier
@@ -139,6 +136,7 @@ t_astnode* assignment_statement(void) {
 
     return tree;
 }
+*/
 
 t_astnode* if_statement(void) {
     t_astnode* condAST, *trueAST, *falseAST = NULL;
@@ -163,7 +161,7 @@ t_astnode* if_statement(void) {
         falseAST = compound_statement();
     }
 
-    return make_ternary_astnode(A_IF, TYPE_NONE, condAST, trueAST, falseAST, 0);
+    return make_ternary_astnode(A_IF, TYPE_NONE, condAST, trueAST, falseAST, NULL, 0);
 }
 
 t_astnode* while_statement(void) {
@@ -182,5 +180,5 @@ t_astnode* while_statement(void) {
 
     bodyAST = compound_statement();
 
-    return make_astnode(A_WHILE, TYPE_NONE, condAST, bodyAST, 0);
+    return make_astnode(A_WHILE, TYPE_NONE, condAST, bodyAST, NULL, 0);
 }

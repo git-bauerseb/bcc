@@ -5,35 +5,35 @@
 #include <stdlib.h>
 
 #include "scan.h"
-#include "cg.h"
+#include "code_generation.h"
 #include "symbol.h"
 #include "definitions.h"
 #include "types.h"
 
+// Sructure used in the Abstract-Systax Tree (AST).
 typedef struct astnode {
     int op;
     int type;
-    int rvalue;                 // True if the node is an rvalue
+    int rvalue;
     struct astnode* left;
     struct astnode* middle;
     struct astnode* right;
+    t_symbol_entry* symbol;
     union {
         int value;              // For A_INTLIT, the integer value
-        int id;                 // For A_IDENT, the symbol slot number
         int size;               // For A_SCALE, the size to scale by
-    } v;
+    };
 } t_astnode;
 
 // Ast generation functions
-t_astnode* make_astnode(int op, int type, t_astnode* left, t_astnode* right, int value);
-t_astnode* make_ternary_astnode(int op, int type, t_astnode* left, t_astnode* middle, t_astnode* right, int value);
-t_astnode* make_ast_leaf(int op, int type, int value);
-t_astnode* make_ast_unary(int op, int type, t_astnode *left, int value);
+t_astnode* make_astnode(int op, int type, t_astnode* left, t_astnode* right, t_symbol_entry* symbol, int value);
+t_astnode* make_ternary_astnode(int op, int type, t_astnode* left, t_astnode* middle, t_astnode* right, t_symbol_entry* symbol, int value);
+t_astnode* make_ast_leaf(int op, int type, t_symbol_entry* symbol, int value);
+t_astnode* make_ast_unary(int op, int type, t_astnode *left, t_symbol_entry* symbol, int value);
 
 void global_declarations(void);
 int arithop(int tok);
 void match(int t, char* to_match);
-void generate_global_symbol(int id);
 
 
 /*
@@ -57,19 +57,40 @@ t_astnode* binary_expression(void);
 t_astnode* function_calls(void);
 
 // Statements
+
+// <compound_statement> ::= <epsilon>
+//                        | <statement>
+//                        | <statement> <statements>
 t_astnode* compound_statement(void);
+
+// <return> ::= 'return'
+//            | 'return' <expression>
 t_astnode* return_statement(void);
-t_astnode* print_statement(void);
+
 t_astnode* assignment_statement(void);
+
 t_astnode* while_statement(void);
 t_astnode* single_statement(void);
 t_astnode* if_statement(void);
 
 // Declarations
+
+// <function_declaration> ::= <type> <identifier> '(' <parameter_list> ')'
+//                          | <type> <identifier> '(' <parameter_list> ')' <compound_statement>
 t_astnode* function_declaration(int type);
-int parameter_declaration(int id);
+
+// <parameter_declaration> ::= <epsilon>
+//                           | <variable_declaration>
+//                           | <variable_declaration> ',' <parameter_declaration>
+int parameter_declaration(t_symbol_entry* function_symbol);
+
+// Parses global variables or functions
 void global_declarations(void);
-void var_declaration(int type, int class);
+
+// Parses declaration of a variable or an array
+// <var_declaration> ::= <type> <identifier>
+//                     | <type> <identifier> '[' <int> ']'
+t_symbol_entry* var_declaration(int type, int class);
 
 // Types
 int inttype(int type);
@@ -86,5 +107,4 @@ extern void print_ast(t_astnode* root, int depth);
 extern t_token token;
 extern int current_function_id;
 
-extern void generate_reset_locals();
 #endif

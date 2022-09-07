@@ -2,49 +2,56 @@
 
 t_astnode* function_declaration(int type) {
     t_astnode* tree, *finalstmt;
-    int nameslot;
-    int paramcnt;
+    int p_count;
 
     int endlabel;
-    int id;
 
+    t_symbol_entry* old_function, *new_function;
+    old_function = new_function = NULL;
 
     // Check if function prototype exists
-    if (((id = find_symbol(text))) != -1) {
-        if (sym_table[id].stype != S_FUNCTION) {
-            id = -1;
+    if ((old_function = find_symbol(text)) != NULL) {
+        if (old_function->stype != S_FUNCTION) {
+            old_function = NULL;
         }
     }
 
-    if (id == -1) {
+    // If the currently parsed function is a new function declaration
+    // then add function to symbol table
+    if (old_function == NULL) {
         endlabel = label();
-        nameslot = add_global(text, type, S_FUNCTION, endlabel, 0, C_GLOBAL);
+        new_function = add_global_symbol(text, type, S_FUNCTION, C_GLOBAL, endlabel);
     }
 
     match(T_LEFT_PAREN, "(");
-    paramcnt = parameter_declaration(id);
+    p_count = parameter_declaration(old_function);
     match(T_RIGHT_PAREN, ")");
 
-    if (id == -1) {
-        sym_table[nameslot].num_elements = paramcnt;
+    // Update parameters of function
+    if (new_function) {
+        new_function->params = p_count;
+        new_function->member = parameter_symbols->head;
+        old_function = new_function;
     }
+
+    clear_parameter_symbols();
 
     if (token.token == T_SEMICOLON) {
         scan(&token);
         return NULL;
     }
 
-    if (id == -1) {
-        id = nameslot;
-    }
-    copy_function_parameters(id);
-
-    current_function_id = id;
+    function_id = old_function;
 
     tree = compound_statement();
 
     // If the type is not void then force a return statement
     if (type != TYPE_VOID) {
+
+        if (tree == NULL) {
+            report_error("function_declaration(): Function returning non-void has no statements.\n");
+        }
+
         finalstmt = (tree->op == A_GLUE) ? tree->right : tree;
 
         if (finalstmt == NULL || finalstmt->op != A_RETURN) {
@@ -52,34 +59,34 @@ t_astnode* function_declaration(int type) {
         }
     }
 
-    return make_ast_unary(A_FUNCTION, type, tree, id);
+    return make_ast_unary(A_FUNCTION, type, tree, old_function, endlabel);
 }
 
-int parameter_declaration(int id) {
-    int type, original_parameter_count;
-    int num_params = 0;
+int parameter_declaration(t_symbol_entry* function_symbol) {
+    int type, p_count;
+    p_count = 0;
 
-    int parameter_id = id + 1;
+    t_symbol_entry* function_prototype = NULL;
 
-    if (parameter_id) {
-        original_parameter_count = sym_table[id].num_elements;
+    if (function_symbol != NULL) {
+        function_prototype = function_symbol;
     }
-
-
 
     while (token.token != T_RIGHT_PAREN) {
         type = parse_type();
         match(T_IDENTIFIER, "Expected identifier");
 
-        if (parameter_id) {
-            if (type != sym_table[id].type) {
+        if (function_prototype != NULL) {
+            if (type != function_prototype->type) {
                 report_error("Type mismatch");
             }
+
+            function_prototype = function_prototype->next;
         } else {
             var_declaration(type, C_PARAMETER);
         }
 
-        num_params++;
+        p_count++;
 
         switch (token.token) {
             case T_COMMA:
@@ -92,11 +99,11 @@ int parameter_declaration(int id) {
         }
     }
 
-    if ((id != -1) && (num_params != original_parameter_count)) {
-        report_error("Parameter mismatch");
+    if (function_symbol != NULL && p_count != function_symbol->params) {
+        report_error("parameter_declaration(): Parameter mismatch between function declaration and definition");
     }
 
-    return num_params;
+    return p_count;
 }
 
 void global_declarations(void) {
@@ -122,36 +129,53 @@ void global_declarations(void) {
     }
 }
 
-void var_declaration(int type, int class) {
+t_symbol_entry* var_declaration(int type, int class) {
 
-    // Text now has the identifier's name.
-    // If the next token is a '['
+    t_symbol_entry* symbol = NULL;
+
+    switch (class) {
+        case C_GLOBAL:
+            if (find_symbol_global(text) != NULL) {
+                report_error("var_declaration(): Already defined global variable %s.\n", text);
+            }
+            break;
+        case C_LOCAL:
+        case C_PARAMETER:
+            if (find_symbol_local(text) != NULL) {
+                report_error("var_declaration(): Already defined local variable %s.\n", text);
+            }
+            break;
+    }
+
     if (token.token == T_LEFT_BRACKET) {
-    // Skip past the '['
     scan(&token);
 
     if (token.token == T_INTLIT) {
-        if (class == C_LOCAL) {
-            report_error("No local arrays.");
-            // id = add_local(text, pointer_to(type), S_ARRAY, 0, token.value, isparam);
-        } else {
-            add_global(text, pointer_to(type), S_ARRAY, 0, token.value, class);
+        switch (class) {
+            case C_GLOBAL:
+                symbol = add_global_symbol(text, pointer_to(type), S_ARRAY, token.value, class);
+                break;
+            case C_LOCAL:
+            case C_PARAMETER:
+                report_error("var_declaration(): Local array definition not implemented.\n");
         }
     }
 
-    // Ensure we have a following ']'
     scan(&token);
     match(T_RIGHT_BRACKET, "]");
     } else {
-        // Add this as a known scalar
-        // and generate its space in assembly
-        if (class == C_LOCAL) {
-
-            if (add_local(text, type, S_VARIABLE, 1, class) == -1) {
-                report_error("Duplicate variable");
-            }
-        } else {
-            add_global(text, type, S_VARIABLE, 0, 1, class);
+        switch (class) {
+            case C_GLOBAL:
+                symbol = add_global_symbol(text, type, S_VARIABLE, 1, class);
+                break;
+            case C_LOCAL:
+                symbol = add_local_symbol(text, type, S_VARIABLE, 1, class);
+                break;
+            case C_PARAMETER:
+                symbol = add_parameter_symbol(text, type, S_VARIABLE, 1, class);
+                break;
         }
     }
+
+    return symbol;
 }
