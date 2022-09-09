@@ -131,6 +131,15 @@ int cg_get_local_offset(int type, int isparam);
 
 void cg_copy_argument(int r, int arg_position);
 
+// Gets the size for a primitive type
+int get_primitive_size(int type);
+
+// Align a location of a variable (e.g. in a struct) according to
+// the memory specifications of the underlying hardware
+int get_alignment(int type, int offset, int direction);
+
+int cgalign(int type, int offset, int direction);
+
 extern FILE* outfile;
 
 #endif

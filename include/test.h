@@ -11,6 +11,7 @@
 #define TEST_MSG_LENGTH 256
 
 void test_types();
+void test_scanner();
 
 void report_test_failed(const char* msg, ...);
 

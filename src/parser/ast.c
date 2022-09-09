@@ -1,8 +1,5 @@
 #include "../../include/ast.h"
 
-// Types
-static int get_primitive_size(int type);
-
 // Helper Functions
 static int isCompOperator(int tokenType);
 static int type_compatible(int* left, int* right, int onlyright);
@@ -95,12 +92,6 @@ int arithop(int tok) {
         fprintf(stderr, "Unknown token on line %d\n", line);
         exit(1);
     }
-}
-
-
-
-static int get_primitive_size(int type) {
-    return cgprimsize(type);
 }
 
 static int type_compatible(int* left, int* right, int onlyright) {

@@ -5,7 +5,8 @@
 #include <string.h>
 
 #include "definitions.h"
-#include "scan.h"
+#include "scanner.h"
+#include "symbol.h"
 
 #define MAX_TYPE_LENGTH 32
 
@@ -25,5 +26,9 @@ int value_at(int type);
 
 // Get a string representing the type provided by the argument
 char* get_type_representation(int type);
+
+int typesize(int type, t_symbol_entry* ctype);
+
+extern int get_primitive_size(int type);
 
 #endif

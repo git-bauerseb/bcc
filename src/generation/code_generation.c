@@ -208,14 +208,13 @@ int cgloadglob(t_symbol_entry* symbol, int op) {
 }
 
 int cgstorderef(int r1, int r2, int type) {
-    switch (type) {
-        case TYPE_CHAR:
+    switch (cgprimsize(type)) {
+        case 1:
             fprintf(outfile, "\tmovb\t%s, (%s)\n", byte_register_list[r1], register_list[r2]);
             break;
-        case TYPE_INT:
-            fprintf(outfile, "\tmovq\t%s, (%s)\n", register_list[r1], register_list[r2]);
-            break;
-        case TYPE_LONG:
+        case 2:
+        case 4:
+        case 8:
             fprintf(outfile, "\tmovq\t%s, (%s)\n", register_list[r1], register_list[r2]);
             break;
         default:
@@ -318,25 +317,29 @@ int cgstorelocal(int r, t_symbol_entry* symbol) {
 }
 
 void cgglobsym(t_symbol_entry* symbol) {
-    int typesize;
+    int size;
 
     // Dont generate symbol for function
     if (symbol->stype == S_FUNCTION) {
         return;
     }
 
-    typesize = cgprimsize(symbol->type);
+    size = typesize(symbol->type, symbol->ctype);
     cgdataseg();
 
     fprintf(outfile, "\t.data\n" "\t.globl\t%s\n", symbol->name);
     fprintf(outfile, "%s:", symbol->name);
 
     for (int i = 0; i < symbol->size; i++) {
-        switch(typesize) {
+        switch(size) {
             case 1: fprintf(outfile, "\t.byte\t0\n"); break;
             case 4: fprintf(outfile, "\t.long\t0\n"); break;
             case 8: fprintf(outfile, "\t.quad\t0\n"); break;
-            default: fprintf(stderr, "Unknown typesize in cgglobsym: %d\n", typesize); exit(1);
+            default:
+                for (int i = 0; i < size; i++) {
+                    fprintf(outfile, "\t.byte\t0\n");
+                }
+                break;
         }
     }
 }
@@ -546,14 +549,16 @@ int cgaddress(t_symbol_entry* symbol) {
 }
 
 int cgderef(int r, int type) {
-    switch (value_at(type)) {
-        case TYPE_CHAR:
+    int new_type = value_at(type);
+    switch (cgprimsize(new_type)) {
+        case 1:
             fprintf(outfile, "\tmovzbq\t(%s), %s\n", register_list[r], register_list[r]);
             break;
-        case TYPE_INT:
+        case 2:
             fprintf(outfile, "\tmovslq\t(%s), %s\n", register_list[r], register_list[r]);
             break;
-        case TYPE_LONG:
+        case 4:
+        case 8:
             fprintf(outfile, "\tmovq\t(%s), %s\n", register_list[r], register_list[r]);
             break;
     }
@@ -581,4 +586,32 @@ void cg_copy_argument(int r, int arg_position) {
         fprintf(outfile, "\tmovq\t%s, %s\n", register_list[r],
             register_list[FIRST_PARAMETER_REGISTER - arg_position + 1]);
     }
+}
+
+int get_primitive_size(int type) {
+    return cgprimsize(type);
+}
+
+
+int get_alignment(int type, int offset, int direction) {
+    return cgalign(type, offset, direction);
+}
+
+int cgalign(int type, int offset, int direction) {
+
+    int alignment;
+
+    switch (type) {
+        case TYPE_CHAR: return offset;
+        case TYPE_INT:
+        case TYPE_LONG:
+            break;
+        default:
+            report_error("cgalign(): Bad type for alignment.\n", type);
+            break;
+    }
+
+    alignment = 4;
+    offset = ((offset + direction * (alignment-1))) & ~(alignment-1);
+    return offset;
 }

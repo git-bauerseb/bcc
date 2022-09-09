@@ -12,6 +12,8 @@ static t_astnode* prefix(void);
 // <postfix> ::= <primary>
 //             | <postfix> '++'
 //             | <postfix> '--'
+//             | <postfix> '.'
+//             | <postfix> '->'
 static t_astnode* postfix(void);
 
 // <expression_list> ::= <epsilon>
@@ -57,6 +59,66 @@ static t_astnode* and_expression(void);
 static t_astnode* xor_expression(void);
 
 static void convert_types(t_astnode** left, t_astnode** right, int op);
+
+static t_astnode* member_access(int indirect) {
+
+    t_astnode* left, *right;
+    t_symbol_entry* composit;
+    t_symbol_entry* member;
+
+    if ((composit = find_symbol(text)) == NULL) {
+        report_error("member_access(): Error, accessing member of non-existing variable %s.\n", text);
+    }
+
+    // If we try to access a member of a direct struct with '->' we report an error
+    if (indirect && composit->type != pointer_to(TYPE_STRUCT)
+        && composit->type != pointer_to(TYPE_UNION)) {
+        report_error("member_access(): Expected pointer to struct, got struct.\n");
+    }
+
+    if (!indirect && composit->type != TYPE_STRUCT && composit->type != TYPE_UNION) {
+        report_error("member_access(): Expected struct, got something else.\n");
+    }
+
+    if (indirect) {
+        if (composit->type == TYPE_STRUCT) {
+            left = make_ast_leaf(A_IDENTIFIER, pointer_to(TYPE_STRUCT), composit, 0);
+        } else {
+            left = make_ast_leaf(A_IDENTIFIER, pointer_to(TYPE_UNION), composit, 0);
+        }
+    } else {
+        left = make_ast_leaf(A_ADDR, composit->type, composit, 0);
+    }
+
+    t_symbol_entry* ctype = composit->ctype;
+    left->rvalue = 1;
+    scan(&token);
+    if (indirect) {
+        match(T_IDENTIFIER, "Expected identifier after '->'.\n");
+    } else {
+        match(T_IDENTIFIER, "Expected identifier after '.'.\n");
+    }
+
+    t_symbol_entry* m;
+
+    for (m = ctype->member; m != NULL; m = m->next) {
+        if (!strcmp(m->name, text)) {
+            break;
+        }
+    }
+
+    if (m == NULL) {
+        report_error("member_access(): No member %s in struct %s\n", text, composit->name);
+    }
+
+    // Get offset of struct member
+    right = make_ast_leaf(A_INTLIT, TYPE_INT, NULL, m->offset);
+
+    left = make_astnode(A_ADD, pointer_to(m->type), left, right, NULL, 0);
+    left = make_ast_unary(A_DEREFERENCE, m->type, left, NULL, 0);
+
+    return left;
+}
 
 
 t_astnode* binary_expression(void) {
@@ -170,6 +232,14 @@ static t_astnode* postfix(void) {
 
     if (token.token == T_LEFT_BRACKET) {
         return array_access();
+    }
+
+    if (token.token == T_DOT) {
+        return (member_access(0));
+    }
+
+    if (token.token == T_ARROW) {
+        return (member_access(1));
     }
 
     if ((variable = find_symbol(text)) == NULL || variable->stype != S_VARIABLE) {
@@ -553,7 +623,7 @@ t_astnode* function_calls(void) {
     t_symbol_entry* function_ptr;
 
     // Check if function name exists
-    if ((function_ptr = find_symbol(text)) == NULL || function_ptr->type != S_FUNCTION) {
+    if ((function_ptr = find_symbol(text)) == NULL || function_ptr->stype != S_FUNCTION) {
         report_error("function_calls(): Undeclared function %s.\n", text);
     }
 
@@ -575,6 +645,7 @@ static t_astnode* expression_list(void) {
 
     while (token.token != T_RIGHT_PAREN) {
         child = binary_expression();
+        child->rvalue = 1;
         expr_count++;
 
         tree = make_ternary_astnode(A_GLUE, TYPE_NONE, tree, NULL, child, NULL, expr_count);

@@ -6,7 +6,7 @@
 
 // Enumeration of the different types of nodes stored in the AST.
 enum {
-    A_ADD = 1,
+    A_ADD = 0x100,
     A_SUBTRACT,
     A_MULTIPLY,
     A_DIVIDE,
@@ -27,9 +27,7 @@ enum {
     A_FOR,
     A_FUNCTION,
     A_WIDEN,
-
     A_SCALE,
-
     A_FUNCTION_CALL,
     A_RETURN,
     A_ADDR,
@@ -71,6 +69,8 @@ enum {
     TYPE_SHORT = 0x3,
     TYPE_INT = 0x4,
     TYPE_LONG = 0x5,
+    TYPE_STRUCT = 0x6,
+    TYPE_UNION = 0x7
 };
 
 #endif

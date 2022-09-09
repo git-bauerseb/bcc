@@ -1,4 +1,4 @@
-#include "../include/generate.h"
+#include "../include/generation.h"
 
 /*
     Forward declarations.
@@ -17,7 +17,6 @@ static int generate_function_call(t_astnode* n);
     Return register index with the tree's final value.
 */
 int generate_ast(t_astnode* n, int reg, int parentASTop) {
-
     if (n == NULL) {
         return NOREG;
     }
@@ -77,7 +76,8 @@ int generate_ast(t_astnode* n, int reg, int parentASTop) {
                     } else {
                         return cgstoreglob(leftreg, n->right->symbol);
                     }
-                case A_DEREFERENCE: return (cgstorderef(leftreg, rightreg, n->right->type));
+                case A_DEREFERENCE:
+                    return (cgstorderef(leftreg, rightreg, n->right->type));
                 default: fprintf(stderr, "Cant assign in generate_ast(), op: %d\n", n->op);
             }
         case A_EQUALS:
@@ -223,4 +223,9 @@ static int generate_while_AST(t_astnode* n) {
     cglabel(lend);
 
     return NOREG;
+}
+
+
+void generate_global_symbol(t_symbol_entry* symbol) {
+    cgglobsym(symbol);
 }

@@ -23,21 +23,19 @@ void print_ast(t_astnode* root, int depth) {
 
     char prefBuff[depth+1];
 
-    for (int i = 0; i < depth; i++) {prefBuff[i]=' ';}
+    for (int i = 0; i < depth; i++) {prefBuff[i]='-';}
     prefBuff[depth] = '\0';
 
-    char* ast_name = ast_names[root->op-1];
+    if (depth > 0) {
+        prefBuff[0] = '|';
+    }
 
-    switch (root->op) {
-        case A_ASSIGN: printf("%s%s\n", prefBuff, ast_name); break;
-        case A_IDENTIFIER: printf("%s%s(%s) %s\n", prefBuff, ast_name, root->symbol->name, root->rvalue != 0 ? "rvalue" : ""); break;
-        case A_INTLIT: printf("%s%s(%d) %s\n", prefBuff, ast_name, root->value, root->rvalue != 0 ? "rvalue" : ""); break;
-        case A_FUNCTION: printf("%s%s\n", prefBuff, ast_name); break;
-        case A_GLUE: printf("%s%s\n", prefBuff, ast_name); break;
-        case A_RETURN: printf("%s%s\n", prefBuff, ast_name); break;
-        case A_DEREFERENCE: printf("%s%s %s\n", prefBuff, ast_name, root->rvalue != 0 ? "rvalue" : ""); break;
-        case A_FUNCTION_CALL: printf("%s%s %s\n", prefBuff, ast_name, root->rvalue != 0 ? "rvalue" : ""); break;
-        case A_POST_DECREMENT: printf("%s%s \n", prefBuff, "POST_DECREMENT");
+    char* ast_name = ast_names[root->op-A_ADD];
+
+    if (root->rvalue) {
+        printf("%s%s rvalue\n", prefBuff, ast_name);
+    } else {
+        printf("%s%s\n", prefBuff, ast_name);
     }
 
     if (root->left != NULL) {

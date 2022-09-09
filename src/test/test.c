@@ -23,6 +23,12 @@ void test_types() {
     free(str);
 }
 
+void test_scanner() {
+
+
+
+}
+
 void report_test_failed(const char* msg, ...) {
     va_list list;
     va_start(list, msg);

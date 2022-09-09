@@ -1,4 +1,4 @@
-#include "../include/scan.h"
+#include "../include/scanner.h"
 
 /*
     Forward declarations
@@ -102,11 +102,12 @@ static int scan_identifier(int c, char* buff, int lim) {
 
 static int keyword(char* s) {
     switch (*s) {
-        case 'p':
-            if (!strcmp(s, "print")) {
-                return T_PRINT;
+
+        case 's':
+            if (!strcmp(s, "struct")) {
+                return T_STRUCT;
             }
-            break;
+
         case 'i':
             if (!strcmp(s, "int")) {
                 return T_INT;
@@ -150,6 +151,11 @@ static int keyword(char* s) {
                 return T_LONG;
             }
         }
+
+        case 'u':
+            if (!strcmp(s, "union")) {
+                return T_UNION;
+            }
     }
 
     return 0;
@@ -177,20 +183,28 @@ int scan(t_token* t) {
             if ((c = next()) == '+') {
                 t->token = T_INCREMENT;
             } else {
+                putback(c);
                 t->token = T_PLUS;
             }
             break;
         case '-':
             if ((c = next()) == '-') {
                 t->token = T_DECREMENT;
+            } else if (c == '>') {
+                t->token = T_ARROW;
             } else {
+                putback(c);
                 t->token = T_MINUS;
             }
+            break;
+        case '.':
+            t->token = T_DOT;
             break;
         case '|':
             if ((c = next()) == '|') {
                 t->token = T_LOGIC_OR;
             } else {
+                putback(c);
                 t->token = T_OR;
             }
             break;
@@ -212,6 +226,7 @@ int scan(t_token* t) {
             if ((c = next()) == '=') {
                 t->token = T_EQUALS;
             } else {
+                putback(c);
                 t->token = T_ASSIGNMENT;
             }
             break;
@@ -219,6 +234,7 @@ int scan(t_token* t) {
             if ((c = next()) == '&') {
                 t->token = T_LOGIC_AND;
             } else {
+                putback(c);
                 t->token = T_AMPER;
             }
             break;
@@ -289,7 +305,7 @@ int scan(t_token* t) {
                 scan_identifier(c, text, TEXTLEN);
                 int type;
 
-                if (type = keyword(text)) {
+                if ((type = keyword(text))) {
                     t->token = type;
                     break;
                 }

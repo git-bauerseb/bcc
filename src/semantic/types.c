@@ -21,7 +21,7 @@ int pointer_type(int type) {
 // Given a primitive type, returns the type which is a pointer to
 // this type.
 int pointer_to(int type) {
-    if ((type & 0xf) > TYPE_LONG) {
+    if ((type & 0xf) == 0) {
         fprintf(stderr, "pointer_to(): Unrecognized primitive type %d\n", type);
         exit(1);
     }
@@ -37,32 +37,13 @@ int value_at(int type) {
         fprintf(stderr, "value_at(): Unrecognized primitive type in pointer %d\n", type);
     }
 
-    if ((type >> 4) != 0) {
-        (type & 0xf) | (((type & 0xffffff0 >> 4) - 1) << 4);
+    int shifted = type >> 4;
+
+    if (shifted != 0) {
+        return (type & 0xf) | (((type & 0xffffff0 >> 4) - 1) << 4);
     } else {
         return type & 0xf;
     }
-}
-
-int parse_type(void) {
-    int type;
-
-    switch(token.token) {
-        case T_VOID: type = TYPE_VOID; break;
-        case T_CHAR: type = TYPE_CHAR; break;
-        case T_INT: type = TYPE_INT; break;
-        case T_LONG: type = TYPE_LONG; break;
-        default:
-            fprintf(stderr, "Illegal type, token %d\n", token.token);
-    }
-
-    while (1) {
-        scan(&token);
-        if (token.token != T_STAR) {break;}
-        type = pointer_to(type);
-    }
-
-    return type;
 }
 
 char* get_type_representation(int type) {
@@ -84,4 +65,12 @@ char* get_type_representation(int type) {
 
     buffer[len+i] = '\0';
     return buffer;
+}
+
+int typesize(int type, t_symbol_entry* ctype) {
+    if (type == TYPE_STRUCT || type == TYPE_UNION) {
+        return ctype->size;
+    }
+
+    return get_primitive_size(type);
 }

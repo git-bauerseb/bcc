@@ -1,8 +1,6 @@
 void printf(char* fmt);
 
 int main() {
-
-    printf("Hello World %d\n", 23);
-
+    printf("Hello from a refactored compiler %d\n", 23);
     return 0;
 }

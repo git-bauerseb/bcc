@@ -18,7 +18,7 @@ enum {
     T_PRINT,        // 'print' keyword
     T_INT,          // 'int' keyword
     T_ASSIGNMENT,   // '='
-    T_IDENTIFIER,   // representing an identifier           Value: 9
+    T_IDENTIFIER,   // representing an identifier           Value: 10
 
     T_EQUALS,       // '=='
     T_NOT_EQUAL,    // '!='
@@ -61,6 +61,13 @@ enum {
     T_DECREMENT,    // '--'
     T_INVERT,       // '~'
     T_LOGIC_NOT,    // '!'
+
+    T_STRUCT,       // 'struct'
+
+    T_DOT,          // '.'
+    T_ARROW,        // '->'
+
+    T_UNION,
 
     T_EOF
 };

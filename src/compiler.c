@@ -2,7 +2,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include "../include/scan.h"
+#include "../include/scanner.h"
 #include "../include/ast.h"
 
 #define MAX_OBJECTS 100
@@ -287,6 +287,7 @@ int main(int argc, char** argv) {
 
 #ifdef DEBUG
     test_types();
+    test_scanner();
 #endif
 
 #ifndef DEBUG

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "scan.h"
+#include "scanner.h"
 #include "code_generation.h"
 #include "symbol.h"
 #include "definitions.h"
@@ -79,10 +79,10 @@ t_astnode* if_statement(void);
 //                          | <type> <identifier> '(' <parameter_list> ')' <compound_statement>
 t_astnode* function_declaration(int type);
 
-// <parameter_declaration> ::= <epsilon>
+// <var_declaration_list> ::= <epsilon>
 //                           | <variable_declaration>
-//                           | <variable_declaration> ',' <parameter_declaration>
-int parameter_declaration(t_symbol_entry* function_symbol);
+//                           | <variable_declaration> ',' <var_declaration_list>
+int var_declaration_list(t_symbol_entry* function_symbol, int class, int separator, int end_token);
 
 // Parses global variables or functions
 void global_declarations(void);
@@ -90,11 +90,11 @@ void global_declarations(void);
 // Parses declaration of a variable or an array
 // <var_declaration> ::= <type> <identifier>
 //                     | <type> <identifier> '[' <int> ']'
-t_symbol_entry* var_declaration(int type, int class);
+t_symbol_entry* var_declaration(int type, t_symbol_entry* ctype, int class);
 
 // Types
 int inttype(int type);
-int parse_type(void);
+int parse_type(t_symbol_entry** ctpye);
 
 // Generation
 int generate_ast(t_astnode* n, int reg, int parentASTop);

@@ -57,12 +57,15 @@ static t_astnode* for_statement() {
 
 t_astnode* single_statement() {
     int type;
+    t_symbol_entry* ctype;
+
     switch(token.token) {
         case T_INT:
         case T_CHAR:
-            type = parse_type();
+        case T_LONG:
+            type = parse_type(&ctype);
             match(T_IDENTIFIER, "identifier");
-            var_declaration(type, C_LOCAL);           // Parse local variables
+            var_declaration(type, ctype, C_LOCAL);           // Parse local variables
             match(T_SEMICOLON, ";");
             return NULL;
         case T_IF:
