@@ -127,6 +127,14 @@ int cglessequal(int r1, int r2);
 int cggreaterequal(int r1, int r2);
 
 void cg_reset_locals(void);
+
+void cgswitch(int reg,
+              int case_count,
+              int top_label,
+              int* caselabel,
+              int* casevalues,
+              int default_label);
+
 int cg_get_local_offset(int type, int isparam);
 
 void cg_copy_argument(int r, int arg_position);
@@ -139,6 +147,8 @@ int get_primitive_size(int type);
 int get_alignment(int type, int offset, int direction);
 
 int cgalign(int type, int offset, int direction);
+
+extern int label();
 
 extern FILE* outfile;
 

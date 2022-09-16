@@ -10,7 +10,7 @@ static const char* primitive_names[] = {
 
 // Returns true if the provided type is an integral value.
 int inttype(int type) {
-    return (type & 0xf) != 0;
+    return ((type & 0xffffff0) == 0) && (type != TYPE_VOID);
 }
 
 // Returns true if the provided type is a pointer.
@@ -40,7 +40,11 @@ int value_at(int type) {
     int shifted = type >> 4;
 
     if (shifted != 0) {
-        return (type & 0xf) | (((type & 0xffffff0 >> 4) - 1) << 4);
+
+        int upper = ((((type & 0xffffff0) >> 4) - 1) << 4);
+        int lower = type & 0xf;
+
+        return upper | lower;
     } else {
         return type & 0xf;
     }
@@ -73,4 +77,44 @@ int typesize(int type, t_symbol_entry* ctype) {
     }
 
     return get_primitive_size(type);
+}
+
+t_astnode* modify_types(t_astnode* tree, int rtype, int op) {
+    int ltype;
+    int lsize, rsize;
+
+    ltype = tree->type;
+
+    if (inttype(ltype) && inttype(rtype)) {
+        // Same type; no change
+        if (ltype == rtype) {return tree;}
+
+        lsize = typesize(ltype, NULL);
+        rsize = typesize(rtype, NULL);
+
+        if (lsize > rsize) {return NULL;}
+
+        // Widen to right type
+        if (rsize > lsize) {return make_unary_ast_node(A_WIDEN, rtype, tree, tree->symbol, 0);}
+    }
+
+    if (pointer_type(ltype)) {
+        if (op == 0 && ltype == rtype) {return tree;}
+    }
+
+    // If left is int type, right is pointer type and size
+    // of original type is > 1: scale the left.
+    if (op == A_ADD || op == A_SUBTRACT) {
+        if (inttype(ltype) && pointer_type(rtype)) {
+            rsize = get_primitive_size(value_at(rtype));
+
+            if (rsize > 1) {
+                return make_unary_ast_node(A_SCALE, rtype, tree, NULL, rsize);
+            } else {
+                return tree;    // No need to scale
+            }
+        }
+    }
+
+    return NULL;
 }

@@ -6,6 +6,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "error.h"
+
 #define TEXTLEN     512
 
 enum {
@@ -13,12 +15,9 @@ enum {
     T_MINUS,        // '-'
     T_STAR,         // '*'
     T_SLASH,        // '/'
-    T_INTLIT,       // Integer literal
     T_SEMICOLON,    // ';'
-    T_PRINT,        // 'print' keyword
-    T_INT,          // 'int' keyword
     T_ASSIGNMENT,   // '='
-    T_IDENTIFIER,   // representing an identifier           Value: 10
+    T_COLON,        // ':'
 
     T_EQUALS,       // '=='
     T_NOT_EQUAL,    // '!='
@@ -32,16 +31,6 @@ enum {
     T_LEFT_PAREN,   // '('
     T_RIGHT_PAREN,  // ')'
 
-    T_IF,           // 'if' keyword                      Value: 20
-    T_WHILE,        // 'while' keyword
-    T_ELSE,         // 'else' keyword
-    T_FOR,          // 'for' keyword
-    T_VOID,         // 'void' keyword
-
-    T_CHAR,         // 'char' keyword
-    T_LONG,         // 'long' keyword
-    T_RETURN,       // 'return' keyword
-
     T_AMPER,        // '&'
 
     T_COMMA,        // ','
@@ -49,7 +38,6 @@ enum {
     T_LEFT_BRACKET, // '['
     T_RIGHT_BRACKET,// ']'
 
-    T_STRINGLIT,    // Representing a string literal
 
     T_LOGIC_OR,     // '||'
     T_LOGIC_AND,    // '&&'
@@ -62,12 +50,46 @@ enum {
     T_INVERT,       // '~'
     T_LOGIC_NOT,    // '!'
 
-    T_STRUCT,       // 'struct'
-
     T_DOT,          // '.'
     T_ARROW,        // '->'
 
-    T_UNION,
+    T_INTLIT,       // integer literal
+    T_IDENTIFIER,   // representing an identifier
+    T_STRINGLIT,    // representing a string literal
+
+    T_STRUCT,       // 'struct' keyword
+    T_UNION,        // 'union' keyword
+    T_INT,          // 'int' keyword
+    T_IF,           // 'if' keyword
+    T_WHILE,        // 'while' keyword
+    T_ELSE,         // 'else' keyword
+    T_FOR,          // 'for' keyword
+    T_VOID,         // 'void' keyword
+
+    T_CHAR,         // 'char' keyword
+    T_LONG,         // 'long' keyword
+    T_RETURN,       // 'return' keyword
+    T_TYPEDEF,      // 'typedef' keyword
+    T_ENUM,         // 'enum' keyword
+
+    T_AUTO,         // 'auto' keyword
+    T_BREAK,        // 'break' keyword
+    T_CASE,         // 'case' keyword
+    T_CONST,        // 'const' keyword
+    T_CONTINUE,     // 'continue' keyword
+    T_DEFAULT,      // 'default' keyword
+    T_DO,           // 'do' keyword
+    T_FLOAT,        // 'float' keyword
+    T_DOUBLE,       // 'double' keyword
+    T_EXTERN,       // 'extern' keyword
+    T_GOTO,         // 'goto' keyword
+    T_REGISTER,     // 'register' keyword
+    T_SIGNED,       // 'signed' keyword
+    T_SIZEOF,       // 'sizeof' keyword
+    T_STATIC,       // 'static' keyword
+    T_SWITCH,       // 'switch' keyword
+    T_UNSIGNED,     // 'unsigned' keyword
+    T_VOLATILE,     // 'volatile' keyword
 
     T_EOF
 };
@@ -83,6 +105,7 @@ extern int last_char;
 extern char text[TEXTLEN + 1];
 
 extern t_token token;
+extern char* infile_name;
 
 int scan(t_token* t);
 void reject_token(t_token* t);

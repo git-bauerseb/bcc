@@ -16,10 +16,6 @@ static t_astnode* prefix(void);
 //             | <postfix> '->'
 static t_astnode* postfix(void);
 
-// <expression_list> ::= <epsilon>
-//                     | <expression>
-//                     | <expression> ',' <expression_list>
-static t_astnode* expression_list(void);
 
 // <shift> ::= <comparison>
 //                      | <comparison> ('<<' | '>>') <shift>
@@ -115,7 +111,7 @@ static t_astnode* member_access(int indirect) {
     right = make_ast_leaf(A_INTLIT, TYPE_INT, NULL, m->offset);
 
     left = make_astnode(A_ADD, pointer_to(m->type), left, right, NULL, 0);
-    left = make_ast_unary(A_DEREFERENCE, m->type, left, NULL, 0);
+    left = make_unary_ast_node(A_DEREFERENCE, m->type, left, NULL, 0);
 
     return left;
 }
@@ -223,6 +219,12 @@ static t_astnode* postfix(void) {
 
     t_astnode* node;
     t_symbol_entry* variable;
+    t_symbol_entry* e_entry;
+
+    if ((e_entry = find_enum_value(text)) != NULL) {
+        scan(&token);
+        return make_ast_leaf(A_INTLIT, TYPE_INT, NULL, e_entry->size);
+    }
 
     scan(&token);
 
@@ -288,7 +290,7 @@ static t_astnode* prefix(void) {
                 exit(1);
             }
 
-            tree = make_ast_unary(A_PRE_DECREMENT, tree->type, tree, NULL, 0);
+            tree = make_unary_ast_node(A_PRE_DECREMENT, tree->type, tree, NULL, 0);
             break;
 
         case T_INCREMENT:
@@ -300,30 +302,30 @@ static t_astnode* prefix(void) {
                 exit(1);
             }
 
-            tree = make_ast_unary(A_PRE_INCREMENT, tree->type, tree, NULL, 0);
+            tree = make_unary_ast_node(A_PRE_INCREMENT, tree->type, tree, NULL, 0);
             break;
 
         case T_INVERT:
             scan(&token);
             tree = prefix();
             tree->rvalue = 1;
-            tree = modify_type(tree, TYPE_INT, 0);
-            tree = make_ast_unary(A_INVERT, tree->type, tree, NULL, 0);
+            tree = modify_types(tree, TYPE_INT, 0);
+            tree = make_unary_ast_node(A_INVERT, tree->type, tree, NULL, 0);
             break;
 
         case T_LOGIC_NOT:
             scan(&token);
             tree = prefix();
             tree->rvalue = 1;
-            tree = make_ast_unary(A_LOGIC_NOT, tree->type, tree, NULL, 0);
+            tree = make_unary_ast_node(A_LOGIC_NOT, tree->type, tree, NULL, 0);
             break;
 
         case T_MINUS:
             scan(&token);
             tree = prefix();
             tree->rvalue = 1;
-            tree = modify_type(tree, TYPE_INT, 0);
-            tree = make_ast_unary(A_NEGATE, tree->type, tree, NULL, 0);
+            tree = modify_types(tree, TYPE_INT, 0);
+            tree = make_unary_ast_node(A_NEGATE, tree->type, tree, NULL, 0);
             break;
 
         case T_STAR:
@@ -334,7 +336,7 @@ static t_astnode* prefix(void) {
                 fprintf(stderr, "'*' must be followed by an identifier or '*'");
             }
 
-            tree = make_ast_unary(A_DEREFERENCE, value_at(tree->type), tree, NULL, 0);
+            tree = make_unary_ast_node(A_DEREFERENCE, value_at(tree->type), tree, NULL, 0);
             break;
 
         default:
@@ -518,7 +520,7 @@ static t_astnode* assignment_expression(void) {
         right = assignment_expression();
         // Here, only right (assignment target) is rvalue
         right->rvalue = 1;
-        modify_type(right, left->type, 0);
+        modify_types(right, left->type, 0);
 
         // Pass arguments in different order to assure correct associativity
         left = make_astnode(arithop(type), left->type, right, left, NULL, 0);
@@ -570,8 +572,8 @@ static t_astnode* primary(void) {
 static void convert_types(t_astnode** left, t_astnode** right, int op) {
     t_astnode* ltemp, *rtemp;
 
-    ltemp = modify_type(*left, (*right)->type, op);
-    rtemp = modify_type(*right, (*left)->type, op);
+    ltemp = modify_types(*left, (*right)->type, op);
+    rtemp = modify_types(*right, (*left)->type, op);
 
     if (ltemp == NULL && rtemp == NULL) {
         fprintf(stderr, "Incompatible types in binary expression.\n");
@@ -584,18 +586,13 @@ static void convert_types(t_astnode** left, t_astnode** right, int op) {
 
 static t_astnode* array_access(void) {
     t_astnode* left, *right;
-    t_symbol_entry* symbol;
+    t_symbol_entry* array;
 
-    if ((symbol = find_symbol(text)) == NULL || symbol->stype != S_ARRAY) {
+    if ((array = find_symbol(text)) == NULL || array->stype != S_ARRAY) {
         report_error("array_access(): Undeclared array %s.\n", text);
     }
 
-    /*
-        Array access is modeled as pointer addition:
-
-        arr[5] --> *(arr + 5)
-    */
-    left = make_ast_leaf(A_ADDR, symbol->type, symbol, 0);
+    left = make_ast_leaf(A_ADDR, array->type, array, 0);
 
     // '['
     match(T_LEFT_BRACKET, "Expected '[' for array access.");
@@ -611,10 +608,10 @@ static t_astnode* array_access(void) {
     }
 
     // Scale index by size of element type
-    right = modify_type(right, left->type, A_ADD);
+    right = modify_types(right, left->type, A_ADD);
 
-    left = make_astnode(A_ADD, symbol->type, left, right, NULL, 0);
-    left = make_ast_unary(A_DEREFERENCE, value_at(left->type), left, NULL, 0);
+    left = make_astnode(A_ADD, array->type, left, right, NULL, 0);
+    left = make_unary_ast_node(A_DEREFERENCE, value_at(left->type), left, NULL, 0);
     return left;
 }
 
@@ -629,36 +626,32 @@ t_astnode* function_calls(void) {
 
     match(T_LEFT_PAREN, "(");
 
-    tree = expression_list();
-    tree = make_ast_unary(A_FUNCTION_CALL, function_ptr->type, tree, function_ptr, 0);
+    tree = expression_list(T_RIGHT_PAREN);
+    tree = make_unary_ast_node(A_FUNCTION_CALL, function_ptr->type, tree, function_ptr, 0);
     match(T_RIGHT_PAREN, ")");
 
     return tree;
 }
 
-static t_astnode* expression_list(void) {
+t_astnode* expression_list(int end_token) {
     t_astnode* tree, *child;
     tree = NULL;
     child = NULL;
 
     int expr_count = 0;
 
-    while (token.token != T_RIGHT_PAREN) {
+    while (token.token != end_token) {
         child = binary_expression();
         child->rvalue = 1;
         expr_count++;
 
         tree = make_ternary_astnode(A_GLUE, TYPE_NONE, tree, NULL, child, NULL, expr_count);
 
-        switch (token.token) {
-            case T_COMMA:
-                scan(&token);
-                break;
-            case T_RIGHT_PAREN:
-                break;
-            default:
-                report_error("Unexpected token in expression list");
+        if (token.token == end_token) {
+            break;
         }
+
+        match(T_COMMA, "expression_list(): ',' expected");
     }
 
     return tree;

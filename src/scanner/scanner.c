@@ -41,6 +41,7 @@ static int skip(void) {
 
 static int next(void) {
     int c;
+    int l;
 
     if (last_char) {
         c = last_char;
@@ -49,6 +50,31 @@ static int next(void) {
     }
 
     c = fgetc(infile);
+
+    while (c == '#') {
+        scan(&token);
+
+        if (token.token != T_INTLIT) {
+            report_error("next(): Expected preprocessor line number.\n");
+        }
+
+        l = token.value;
+        scan(&token);
+
+        if (token.token != T_STRINGLIT) {
+            report_error("next(): Expected file name.\n");
+        }
+
+        if (text[0] == '<') {
+            if (strcmp(text, infile_name) != 0) {
+                infile_name = strdup(text);
+            }
+
+            line = l;
+        }
+
+        while ((c = fgetc(infile)) != '\n') {c = fgetc(infile);}
+    }
 
     if (c == '\n') {
         line++;
@@ -102,60 +128,69 @@ static int scan_identifier(int c, char* buff, int lim) {
 
 static int keyword(char* s) {
     switch (*s) {
-
-        case 's':
-            if (!strcmp(s, "struct")) {
-                return T_STRUCT;
-            }
-
-        case 'i':
-            if (!strcmp(s, "int")) {
-                return T_INT;
-            }
-
-            if (!strcmp(s, "if")) {
-                return T_IF;
-            }
+        case 'a':
+            if (!strcmp(s, "auto")) { return T_AUTO; }
+            break;
+        case 'b':
+            if (!strcmp(s, "break")) { return T_BREAK; }
+            break;
+        case 'c':
+            if (!strcmp(s, "char")) {return T_CHAR;}
+            else if (!strcmp(s, "continue")) { return T_CONTINUE; }
+            else if (!strcmp(s, "const")) {return T_CONST;}
+            else if (!strcmp(s, "case")) { return T_CASE; }
+            break;
+        case 'd':
+            if (!strcmp(s, "default")) { return T_DEFAULT;}
+            else if (!strcmp(s, "double")) { return T_DOUBLE;}
+            else if (!strcmp(s, "do")) {return T_DO;}
             break;
         case 'e':
-            if (!strcmp(s, "else")) {
-                return T_ELSE;
-            }
-
-        case 'w':
-            if (!strcmp(s, "while")) {
-                return T_WHILE;
-            }
-
+            if (!strcmp(s, "else")) {return T_ELSE;}
+            else if (!strcmp(s, "enum")) {return T_ENUM;}
+            else if (!strcmp(s, "extern")) {return T_EXTERN;}
+            break;
         case 'f':
-            if (!strcmp(s, "for")) {
-                return T_FOR;
-            }
-        case 'v':
-            if (!strcmp(s, "void")) {
-                return T_VOID;
-            }
-        case 'c':
-            if (!strcmp(s, "char")) {
-                return T_CHAR;
-            }
-
-        case 'r': {
-            if (!strcmp(s, "return")) {
-                return T_RETURN;
-            }
-        }
-
+            if (!strcmp(s, "for")) {return T_FOR;}
+            else if (!strcmp(s, "float")) {return T_FLOAT;}
+            break;
+        case 'g':
+            if (!strcmp(s, "goto")) {return T_GOTO;}
+            break;
+        case 'i':
+            if (!strcmp(s, "int")) {return T_INT;}
+            else if (!strcmp(s, "if")) {return T_IF;}
+            break;
         case 'l': {
-            if (!strcmp(s, "long")) {
-                return T_LONG;
-            }
+            if (!strcmp(s, "long")) {return T_LONG;}
+            break;
         }
-
+        case 'r': {
+            if (!strcmp(s, "return")) { return T_RETURN; }
+            else if (!strcmp(s, "register")) {return T_REGISTER;}
+            break;
+        }
+        case 's':
+            if (!strcmp(s, "struct")) { return T_STRUCT; }
+            else if (!strcmp(s, "sizeof")) {return T_SIZEOF;}
+            else if (!strcmp(s, "static")) {return T_STATIC;}
+            else if (!strcmp(s, "switch")) {return T_SWITCH;}
+            else if (!strcmp(s, "signed")) {return T_SIGNED;}
+            break;
+        case 't':
+            if (!strcmp(s, "typedef")) {return T_TYPEDEF;}
+            break;
         case 'u':
-            if (!strcmp(s, "union")) {
-                return T_UNION;
-            }
+            if (!strcmp(s, "union")) { return T_UNION;}
+            else if (!strcmp(s, "unsigned")) {return T_UNSIGNED;}
+            break;
+        case 'v':
+            if (!strcmp(s, "void")) { return T_VOID; }
+            else if (!strcmp(s, "volatile")) { return T_VOLATILE;}
+            break;
+        case 'w':
+            if (!strcmp(s, "while")) { return T_WHILE; }
+            break;
     }
 
     return 0;
@@ -178,6 +213,9 @@ int scan(t_token* t) {
             return 0;
         case '^':
             t->token = T_XOR;
+            break;
+        case ':':
+            t->token = T_COLON;
             break;
         case '+':
             if ((c = next()) == '+') {

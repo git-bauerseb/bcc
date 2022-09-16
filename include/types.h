@@ -27,8 +27,18 @@ int value_at(int type);
 // Get a string representing the type provided by the argument
 char* get_type_representation(int type);
 
+// Depending whether the provided type is composite or primitive,
+// returns the size of the type in bytes.
+int typesize(int type, t_symbol_entry* comp_type);
+
 int typesize(int type, t_symbol_entry* ctype);
 
 extern int get_primitive_size(int type);
+
+// Ast generation functions
+extern t_astnode* make_astnode(int op, int type, t_astnode* left, t_astnode* right, t_symbol_entry* symbol, int value);
+extern t_astnode* make_ternary_astnode(int op, int type, t_astnode* left, t_astnode* middle, t_astnode* right, t_symbol_entry* symbol, int value);
+extern t_astnode* make_ast_leaf(int op, int type, t_symbol_entry* symbol, int value);
+extern t_astnode* make_unary_ast_node(int op, int type, t_astnode *left, t_symbol_entry* symbol, int value);
 
 #endif

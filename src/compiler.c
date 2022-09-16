@@ -16,6 +16,7 @@ char* object_files[MAX_OBJECTS];
 int object_count = 0;
 
 static char* output_name;
+char* infile_name;
 
 // Different options that can be given to the compiler
 // F_COMPILE: Convert source to assembly code
@@ -207,16 +208,23 @@ char* alter_suffix(const char* str, char n_suffix) {
 // The new name of the assembled file is the old filename with
 // the suffix replaced by '.s'
 static char* do_compile(char* filename) {
+
+    char cmd[TEXTLEN];
+
     char* outfile_name = alter_suffix(filename, 's');
 
     if (outfile_name == NULL) {
         report_error("Error: Provided file %s has no suffix, use .c\n", filename);
     }
 
-    if ((infile = fopen(filename, "r")) == NULL) {
+    snprintf(cmd, TEXTLEN, "%s %s %s", "cpp -nostdinc -isystem ", INCDIR, filename);
+
+    if ((infile = popen(cmd, "r")) == NULL) {
         fprintf(stderr, "Unable to open %s: %s\n", filename, strerror(errno));
         exit(1);
     }
+
+    infile_name = filename;
 
     if ((outfile = fopen(outfile_name, "w")) == NULL) {
         fprintf(stderr, "Unable to open %s: %s\n", outfile_name, strerror(errno));

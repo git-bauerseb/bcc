@@ -1,9 +1,0 @@
-char * p;
-
-int main() {
-    for ( p = "Hello World\n"; * p != '\0'; p ++ ) {
-        printchar( *p );
-    }
-
-    return 0;
-}

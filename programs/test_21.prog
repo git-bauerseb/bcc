@@ -1,7 +1,0 @@
-int * y;
-
-int main() {
-    *y = 10;
-
-    printint( * y );
-}

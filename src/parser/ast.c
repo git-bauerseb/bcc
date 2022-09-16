@@ -46,7 +46,7 @@ t_astnode* make_ast_leaf(int op, int type, t_symbol_entry* symbol, int value) {
     return make_astnode(op, type, NULL, NULL, symbol, value);
 }
 
-t_astnode* make_ast_unary(int op, int type, t_astnode *left, t_symbol_entry* symbol, int value) {
+t_astnode* make_unary_ast_node(int op, int type, t_astnode *left, t_symbol_entry* symbol, int value) {
     return make_astnode(op, type, left, NULL, symbol, value);
 }
 
@@ -136,49 +136,5 @@ void match(int t, char* to_match) {
         fprintf(stderr, "%s expected on line %d\n", to_match, line);
         exit(1);
     }
-}
-
-
-// ***********************************************************************
-// HELPER FUNCTIONS
-// ***********************************************************************
-t_astnode* modify_type(t_astnode* tree, int rtype, int op) {
-    int ltype;
-    int lsize, rsize;
-
-    ltype = tree->type;
-
-    if (inttype(ltype) && inttype(rtype)) {
-        // Same type; no change
-        if (ltype == rtype) {return tree;}
-
-        lsize = get_primitive_size(ltype);
-        rsize = get_primitive_size(rtype);
-
-        if (lsize > rsize) {return NULL;}
-
-        // Widen to right type
-        if (rsize > lsize) {return make_ast_unary(A_WIDEN, rtype, tree, tree->symbol, 0);}
-    }
-
-    if (pointer_type(ltype)) {
-        if (op == 0 && ltype == rtype) {return tree;}
-    }
-
-    // If left is int type, right is pointer type and size
-    // of original type is > 1: scale the left.
-    if (op == A_ADD || op == A_SUBTRACT) {
-        if (inttype(ltype) && pointer_type(rtype)) {
-            rsize = get_primitive_size(value_at(rtype));
-
-            if (rsize > 1) {
-                return make_ast_unary(A_SCALE, rtype, tree, tree->symbol, rsize);
-            } else {
-                return tree;    // No need to scale
-            }
-        }
-    }
-
-    return NULL;
 }
 

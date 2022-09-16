@@ -82,6 +82,30 @@ void cgjump(int l) {
 
 void cgpreamble() {
     free_all_registers();
+    fprintf(outfile,
+            "# internal switch(expr) routine\n"
+            "# %%rsi = switch table, %%rax = expr\n"
+            "# from SubC: http://www.t3x.org/subc/\n"
+            "\n"
+            "switch:\n"
+            "        pushq   %%rsi\n"
+            "        movq    %%rdx, %%rsi\n"
+            "        movq    %%rax, %%rbx\n"
+            "        cld\n"
+            "        lodsq\n"
+            "        movq    %%rax, %%rcx\n"
+            "next:\n"
+            "        lodsq\n"
+            "        movq    %%rax, %%rdx\n"
+            "        lodsq\n"
+            "        cmpq    %%rdx, %%rbx\n"
+            "        jnz     no\n"
+            "        popq    %%rsi\n"
+            "        jmp     *%%rax\n"
+            "no:\n"
+            "        loop    next\n"
+            "        lodsq\n"
+            "        popq    %%rsi\n" "        jmp     *%%rax\n" "\n");
 }
 
 void cgpostamble() {}
@@ -318,23 +342,46 @@ int cgstorelocal(int r, t_symbol_entry* symbol) {
 
 void cgglobsym(t_symbol_entry* symbol) {
     int size;
+    int type;
+
+    int init_value;
+    int i;
 
     // Dont generate symbol for function
     if (symbol->stype == S_FUNCTION) {
         return;
     }
 
-    size = typesize(symbol->type, symbol->ctype);
-    cgdataseg();
+    if (symbol->stype == S_ARRAY) {
+        size = typesize(value_at(symbol->type), symbol->ctype);
+        type = value_at(symbol->type);
+    } else {
+        size = symbol->size;
+        type = symbol->type;
+    }
 
+    cgdataseg();
     fprintf(outfile, "\t.data\n" "\t.globl\t%s\n", symbol->name);
     fprintf(outfile, "%s:", symbol->name);
 
-    for (int i = 0; i < symbol->size; i++) {
+    for (i = 0; i < symbol->num_elements; i++) {
+        init_value = 0;
+
+        if (symbol->initializer_list != NULL) {
+            init_value = symbol->initializer_list[i];
+        }
+
         switch(size) {
-            case 1: fprintf(outfile, "\t.byte\t0\n"); break;
-            case 4: fprintf(outfile, "\t.long\t0\n"); break;
-            case 8: fprintf(outfile, "\t.quad\t0\n"); break;
+            case 1: fprintf(outfile, "\t.byte\t%d\n", init_value); break;
+            case 4: fprintf(outfile, "\t.long\t%d\n", init_value); break;
+            case 8:
+
+                if (symbol->initializer_list != NULL && type == pointer_to(TYPE_CHAR)) {
+                    fprintf(outfile, "\t.quad\tL%d\n", init_value);
+                } else {
+                    fprintf(outfile, "\t.quad\t%d\n", init_value);
+                }
+                break;
             default:
                 for (int i = 0; i < size; i++) {
                     fprintf(outfile, "\t.byte\t0\n");
@@ -614,4 +661,36 @@ int cgalign(int type, int offset, int direction) {
     alignment = 4;
     offset = ((offset + direction * (alignment-1))) & ~(alignment-1);
     return offset;
+}
+
+
+void cgswitch(int reg,
+              int case_count,
+              int top_label,
+              int* caselabel,
+              int* casevalues,
+              int default_label) {
+    int i;
+    int l;
+
+    l = label();
+    cglabel(l);
+
+    if (case_count == 0) {
+        casevalues[0] = 0;
+        caselabel[0] = default_label;
+        case_count = 1;
+    }
+
+    fprintf(outfile, "\t.quad\t%d\n", case_count);
+
+    for (i = 0; i < case_count; i++) {
+        fprintf(outfile, "\t.quad\t%d, L%d\n", casevalues[i], caselabel[i]);
+    }
+
+    fprintf(outfile, "\t.quad\tL%d\n", default_label);
+    cglabel(top_label);
+    fprintf(outfile, "\tmovq\t%s, %%rax\n", register_list[reg]);
+    fprintf(outfile, "\tleaq\tL%d(%%rip), %%rdx\n", l);
+    fprintf(outfile, "\tjmp\tswitch\n");
 }

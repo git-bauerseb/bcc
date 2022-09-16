@@ -12,7 +12,11 @@
 
     Return register index with the tree's final value.
 */
-int generate_ast(t_astnode* n, int reg, int parentASTop);
+int generate_ast(t_astnode* n,
+                 int if_label,
+                 int loop_start_label,
+                 int loop_end_label,
+                 int parent_ast_op);
 
 int generate_global_string(char* text);
 void generate_global_symbol(t_symbol_entry* symbol);
